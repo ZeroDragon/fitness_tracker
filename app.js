@@ -30,6 +30,13 @@ createApp({
         const fetchEvents = async () => {
             loading.value = true;
             error.value = null;
+            // Clear previous data immediately
+            events.value = [];
+            // Destroy existing chart
+            if (chartInstance.value) {
+                chartInstance.value.destroy();
+                chartInstance.value = null;
+            }
             try {
                 const dateParam = formatDateForApi(currentDate.value);
                 const url = `${apiUrl}?date=${dateParam}`;
@@ -37,7 +44,9 @@ createApp({
                 if (!response.ok) {
                     throw new Error('Failed to fetch events');
                 }
-                events.value = await response.json();
+                const responseData = await response.json();
+                // Extract items from the new response structure
+                events.value = responseData[0]?.items || [];
             } catch (err) {
                 error.value = err.message;
                 events.value = [];
