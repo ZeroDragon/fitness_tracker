@@ -235,6 +235,17 @@ createApp({
                         bodyColor: '#a9b1d6',
                         borderColor: '#414868',
                         borderWidth: 1,
+                        padding: 12,
+                        bodyFont: {
+                            size: 13,
+                            family: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif'
+                        },
+                        titleFont: {
+                            size: 14,
+                            weight: 'bold',
+                            family: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif'
+                        },
+                        boxPadding: 6,
                         callbacks: {
                             title: function(context) {
                                 const timestamp = context[0].parsed.x;
@@ -244,7 +255,27 @@ createApp({
                             label: function(context) {
                                 if (context.dataset.type === 'scatter') {
                                     const event = context.raw.event;
-                                    return `${event.type}: ${event.desc}`;
+                                    const text = `${event.type}: ${event.desc}`;
+                                    // Word wrap: split into multiple lines if too long
+                                    const maxCharsPerLine = 50;
+                                    if (text.length > maxCharsPerLine) {
+                                        const words = text.split(' ');
+                                        const lines = [];
+                                        let currentLine = '';
+
+                                        words.forEach(word => {
+                                            if ((currentLine + ' ' + word).length <= maxCharsPerLine) {
+                                                currentLine += (currentLine ? ' ' : '') + word;
+                                            } else {
+                                                if (currentLine) lines.push(currentLine);
+                                                currentLine = word;
+                                            }
+                                        });
+                                        if (currentLine) lines.push(currentLine);
+
+                                        return lines;
+                                    }
+                                    return text;
                                 }
                                 return context.parsed.y.toString();
                             }
