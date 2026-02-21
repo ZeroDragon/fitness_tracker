@@ -8,6 +8,8 @@ createApp({
         const currentDate = ref(new Date());
         const chartInstance = ref(null);
         const selectedEvent = ref(null);
+        const sweetSpotChart = ref(null);
+        const perfectSpotChart = ref(null);
 
         // Format date for API
         const formatDateForApi = (date) => {
@@ -349,6 +351,90 @@ createApp({
                 },
                 options: chartOptions
             });
+
+            // Create pie charts
+            updatePieCharts();
+        };
+
+        // Create pie charts for sweet spot and perfect spot
+        const updatePieCharts = () => {
+            // Sweet spot chart (60-180)
+            const sweetCtx = document.getElementById('sweetSpotChart');
+            if (sweetCtx) {
+                if (sweetSpotChart.value) {
+                    sweetSpotChart.value.destroy();
+                }
+
+                sweetSpotChart.value = new Chart(sweetCtx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Dentro', 'Arriba', 'Abajo'],
+                        datasets: [{
+                            data: [sweetSpotStats.value.inRange, sweetSpotStats.value.aboveRange, sweetSpotStats.value.belowRange],
+                            backgroundColor: ['#9ece6a', '#f7768e', '#2ac3de'],
+                            borderWidth: 0
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: true,
+                        plugins: {
+                            legend: {
+                                display: false
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        const total = sweetSpotStats.value.total;
+                                        const value = context.parsed;
+                                        const percentage = ((value / total) * 100).toFixed(1);
+                                        return `${context.label}: ${value} (${percentage}%)`;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+            // Perfect spot chart (80-100)
+            const perfectCtx = document.getElementById('perfectSpotChart');
+            if (perfectCtx) {
+                if (perfectSpotChart.value) {
+                    perfectSpotChart.value.destroy();
+                }
+
+                perfectSpotChart.value = new Chart(perfectCtx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Dentro', 'Arriba', 'Abajo'],
+                        datasets: [{
+                            data: [perfectSpotStats.value.inRange, perfectSpotStats.value.aboveRange, perfectSpotStats.value.belowRange],
+                            backgroundColor: ['#9ece6a', '#f7768e', '#2ac3de'],
+                            borderWidth: 0
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: true,
+                        plugins: {
+                            legend: {
+                                display: false
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        const total = perfectSpotStats.value.total;
+                                        const value = context.parsed;
+                                        const percentage = ((value / total) * 100).toFixed(1);
+                                        return `${context.label}: ${value} (${percentage}%)`;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
         };
 
         // Computed properties
@@ -380,6 +466,50 @@ createApp({
                 .sort((a, b) => a.timestamp - b.timestamp);
         });
 
+        // Glucose statistics
+        const maxGlucose = computed(() => {
+            const values = glucoseReadings.value.map(r => r.value);
+            return values.length > 0 ? Math.max(...values).toFixed(0) : '-';
+        });
+
+        const minGlucose = computed(() => {
+            const values = glucoseReadings.value.map(r => r.value);
+            return values.length > 0 ? Math.min(...values).toFixed(0) : '-';
+        });
+
+        const avgGlucose = computed(() => {
+            const values = glucoseReadings.value.map(r => r.value);
+            if (values.length === 0) return '-';
+            const sum = values.reduce((a, b) => a + b, 0);
+            return (sum / values.length).toFixed(0);
+        });
+
+        // Sweet spot (60-180) statistics
+        const sweetSpotStats = computed(() => {
+            const readings = glucoseReadings.value;
+            const inRange = readings.filter(r => r.value >= 60 && r.value <= 180).length;
+            const aboveRange = readings.filter(r => r.value > 180).length;
+            const belowRange = readings.filter(r => r.value < 60).length;
+            return { inRange, aboveRange, belowRange, total: readings.length };
+        });
+
+        const sweetSpotInCount = computed(() => sweetSpotStats.value.inRange);
+        const sweetSpotAboveCount = computed(() => sweetSpotStats.value.aboveRange);
+        const sweetSpotBelowCount = computed(() => sweetSpotStats.value.belowRange);
+
+        // Perfect spot (80-100) statistics
+        const perfectSpotStats = computed(() => {
+            const readings = glucoseReadings.value;
+            const inRange = readings.filter(r => r.value >= 80 && r.value <= 100).length;
+            const aboveRange = readings.filter(r => r.value > 100).length;
+            const belowRange = readings.filter(r => r.value < 80).length;
+            return { inRange, aboveRange, belowRange, total: readings.length };
+        });
+
+        const perfectSpotInCount = computed(() => perfectSpotStats.value.inRange);
+        const perfectSpotAboveCount = computed(() => perfectSpotStats.value.aboveRange);
+        const perfectSpotBelowCount = computed(() => perfectSpotStats.value.belowRange);
+
         // Watch for date changes
         watch(currentDate, () => {
             updateUrlDate();
@@ -402,7 +532,16 @@ createApp({
             nextDay,
             goToToday,
             glucoseReadings,
-            otherEvents
+            otherEvents,
+            maxGlucose,
+            minGlucose,
+            avgGlucose,
+            sweetSpotInCount,
+            sweetSpotAboveCount,
+            sweetSpotBelowCount,
+            perfectSpotInCount,
+            perfectSpotAboveCount,
+            perfectSpotBelowCount
         };
     },
     template: `
@@ -446,6 +585,74 @@ createApp({
                         <p v-if="events.length > 0" style="margin-top: var(--spacing-sm); font-size: 0.9rem; color: var(--text-secondary);">
                             Se encontraron {{ events.length }} evento(s) pero sin lecturas de glucosa
                         </p>
+                    </div>
+
+                    <!-- Stats Section -->
+                    <div v-if="!loading && !error && glucoseReadings.length > 0" class="stats-section">
+                        <div class="stats-grid">
+                            <!-- Glucose Stats -->
+                            <div class="stats-card">
+                                <h4 class="stats-title">Estadísticas de Glucosa</h4>
+                                <div class="stats-values">
+                                    <div class="stat-item">
+                                        <span class="stat-label">Máximo</span>
+                                        <span class="stat-value">{{ maxGlucose }}</span>
+                                    </div>
+                                    <div class="stat-item">
+                                        <span class="stat-label">Mínimo</span>
+                                        <span class="stat-value">{{ minGlucose }}</span>
+                                    </div>
+                                    <div class="stat-item">
+                                        <span class="stat-label">Promedio</span>
+                                        <span class="stat-value">{{ avgGlucose }}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Sweet Spot Chart -->
+                            <div class="stats-card">
+                                <h4 class="stats-title">Sweet Spot (60-180)</h4>
+                                <div class="pie-chart-container">
+                                    <canvas id="sweetSpotChart"></canvas>
+                                </div>
+                                <div class="chart-legend">
+                                    <div class="legend-item">
+                                        <span class="legend-color" style="background-color: #9ece6a;"></span>
+                                        <span class="legend-label">Dentro ({{ sweetSpotInCount }})</span>
+                                    </div>
+                                    <div class="legend-item">
+                                        <span class="legend-color" style="background-color: #f7768e;"></span>
+                                        <span class="legend-label">Arriba ({{ sweetSpotAboveCount }})</span>
+                                    </div>
+                                    <div class="legend-item">
+                                        <span class="legend-color" style="background-color: #2ac3de;"></span>
+                                        <span class="legend-label">Abajo ({{ sweetSpotBelowCount }})</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Perfect Spot Chart -->
+                            <div class="stats-card">
+                                <h4 class="stats-title">Perfect Spot (80-100)</h4>
+                                <div class="pie-chart-container">
+                                    <canvas id="perfectSpotChart"></canvas>
+                                </div>
+                                <div class="chart-legend">
+                                    <div class="legend-item">
+                                        <span class="legend-color" style="background-color: #9ece6a;"></span>
+                                        <span class="legend-label">Dentro ({{ perfectSpotInCount }})</span>
+                                    </div>
+                                    <div class="legend-item">
+                                        <span class="legend-color" style="background-color: #f7768e;"></span>
+                                        <span class="legend-label">Arriba ({{ perfectSpotAboveCount }})</span>
+                                    </div>
+                                    <div class="legend-item">
+                                        <span class="legend-color" style="background-color: #2ac3de;"></span>
+                                        <span class="legend-label">Abajo ({{ perfectSpotBelowCount }})</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Selected Event Detail -->
