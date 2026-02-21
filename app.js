@@ -236,12 +236,17 @@ createApp({
                         borderColor: '#414868',
                         borderWidth: 1,
                         callbacks: {
+                            title: function(context) {
+                                const timestamp = context[0].parsed.x;
+                                const date = new Date(timestamp);
+                                return date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+                            },
                             label: function(context) {
                                 if (context.dataset.type === 'scatter') {
                                     const event = context.raw.event;
                                     return `${event.type}: ${event.desc}`;
                                 }
-                                return `${context.dataset.label}: ${context.parsed.y} mg/dL`;
+                                return context.parsed.y.toString();
                             }
                         }
                     },
