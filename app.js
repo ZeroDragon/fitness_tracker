@@ -107,11 +107,15 @@ createApp({
                 return;
             }
 
-            // Prepare labels from glucose readings
-            const labels = glucoseData.map(r =>
-                r.timestamp.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })
-            );
+            // Prepare labels from glucose readings - use timestamps
+            const labels = glucoseData.map(r => r.timestamp);
             const glucoseValues = glucoseData.map(r => r.value);
+
+            // Create x,y pairs for glucose line
+            const glucoseDataPoints = glucoseData.map(r => ({
+                x: r.timestamp.getTime(),
+                y: r.value
+            }));
 
             // Prepare other events as scatter points
             const otherEvents = events.value
@@ -127,21 +131,18 @@ createApp({
                 })
                 .sort((a, b) => a.timestamp - b.timestamp);
 
-            // Create scatter dataset for other events
+            // Get min and max timestamps for chart bounds
+            const allTimestamps = [...glucoseData.map(r => r.timestamp.getTime()), ...otherEvents.map(e => e.timestamp.getTime())];
+            const minTimestamp = Math.min(...allTimestamps);
+            const maxTimestamp = Math.max(...allTimestamps);
+            // Add some padding (2 minutes on each side)
+            const padding = 2 * 60 * 1000; // 2 minutes in milliseconds
+
+            // Create scatter dataset for other events - use actual timestamp for x position
             const scatterData = otherEvents.map(event => {
-                // Find the closest glucose reading to place the event point
-                const closestGlucose = glucoseData.reduce((closest, reading) => {
-                    const diff = Math.abs(reading.timestamp - event.timestamp);
-                    const closestDiff = Math.abs(closest.timestamp - event.timestamp);
-                    return diff < closestDiff ? reading : closest;
-                }, glucoseData[0]);
-
-                // Use the index of the closest glucose reading for x position
-                const xIndex = glucoseData.indexOf(closestGlucose);
-
                 return {
-                    x: xIndex >= 0 ? xIndex : 0,
-                    y: closestGlucose ? closestGlucose.value : 100,
+                    x: event.timestamp.getTime(),
+                    y: glucoseData.length > 0 ? glucoseData[0].value : 100,
                     event: event
                 };
             });
@@ -151,7 +152,7 @@ createApp({
                 {
                     type: 'line',
                     label: 'Glucosa (mg/dL)',
-                    data: glucoseValues,
+                    data: glucoseDataPoints,
                     borderColor: '#2ac3de',
                     backgroundColor: 'rgba(42, 195, 222, 0.1)',
                     borderWidth: 2,
@@ -186,13 +187,20 @@ createApp({
                 },
                 scales: {
                     x: {
+                        type: 'linear',
+                        min: minTimestamp - padding,
+                        max: maxTimestamp + padding,
                         title: {
                             display: true,
                             text: 'Hora',
                             color: '#a9b1d6'
                         },
                         ticks: {
-                            color: '#a9b1d6'
+                            color: '#a9b1d6',
+                            callback: function(value) {
+                                const date = new Date(value);
+                                return date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+                            }
                         },
                         grid: {
                             color: 'rgba(65, 72, 104, 0.5)'
