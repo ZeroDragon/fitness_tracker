@@ -23,6 +23,31 @@ createApp({
             return date.toLocaleDateString('es-ES', options);
         };
 
+        // Get date from URL query parameter
+        const getDateFromUrl = () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const dateParam = urlParams.get('date');
+            if (dateParam) {
+                const [year, month, day] = dateParam.split('-').map(Number);
+                const date = new Date(year, month - 1, day);
+                if (!isNaN(date.getTime())) {
+                    return date;
+                }
+            }
+            return new Date();
+        };
+
+        // Update URL with current date
+        const updateUrlDate = () => {
+            const dateParam = formatDateForApi(currentDate.value);
+            const url = new URL(window.location.href);
+            url.searchParams.set('date', dateParam);
+            window.history.replaceState({}, '', url.toString());
+        };
+
+        // Set initial date from URL
+        currentDate.value = getDateFromUrl();
+
         // API URL
         const apiUrl = 'https://n8n.floresbenavides.com/webhook/events';
 
@@ -357,6 +382,7 @@ createApp({
 
         // Watch for date changes
         watch(currentDate, () => {
+            updateUrlDate();
             fetchEvents();
         });
 
