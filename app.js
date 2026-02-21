@@ -174,6 +174,9 @@ createApp({
             // Add some padding (2 minutes on each side)
             const padding = 2 * 60 * 1000; // 2 minutes in milliseconds
 
+            // Calculate Y-axis max - max glucose value or 200, whichever is greater
+            const maxY = glucoseValues.length > 0 ? Math.max(Math.max(...glucoseValues), 200) : 200;
+
             // Create scatter dataset for other events - use actual timestamp for x position
             const scatterData = otherEvents.map(event => {
                 return {
@@ -192,7 +195,7 @@ createApp({
                     borderColor: '#2ac3de',
                     backgroundColor: 'rgba(42, 195, 222, 0.1)',
                     borderWidth: 2,
-                    fill: true,
+                    fill: false,
                     tension: 0.4,
                     pointBackgroundColor: '#2ac3de',
                     pointBorderColor: '#fff',
@@ -244,7 +247,7 @@ createApp({
                     },
                     y: {
                         min: 40,
-                        max: 250,
+                        max: maxY,
                         title: {
                             display: true,
                             text: 'Glucosa (mg/dL)',
@@ -323,8 +326,16 @@ createApp({
                                 type: 'box',
                                 yMin: 60,
                                 yMax: 180,
-                                backgroundColor: 'rgba(158, 206, 106, 0.15)',
+                                backgroundColor: 'transparent',
                                 borderColor: 'rgba(158, 206, 106, 0.3)',
+                                borderWidth: 2
+                            },
+                            perfectZone: {
+                                type: 'box',
+                                yMin: 80,
+                                yMax: 100,
+                                backgroundColor: 'transparent',
+                                borderColor: 'rgba(42, 195, 222, 0.3)',
                                 borderWidth: 2
                             }
                         }
