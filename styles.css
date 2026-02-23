@@ -57,6 +57,17 @@ header {
     border-bottom: 1px solid var(--bg-tertiary);
 }
 
+.header-link {
+    font-size: 1.5rem;
+    color: var(--accent-cyan);
+    text-decoration: none;
+    transition: color 0.2s;
+}
+
+.header-link:hover {
+    color: var(--accent-blue);
+}
+
 header h1 {
     font-size: 1.5rem;
     color: var(--accent-cyan);
@@ -115,6 +126,88 @@ main {
 
 .date-btn:hover {
     background-color: var(--accent-blue);
+}
+
+.date-nav-btn {
+    min-width: 40px;
+    padding: var(--spacing-sm) var(--spacing-md);
+    font-size: 1.25rem;
+}
+
+/* Threshold Buttons */
+.threshold-buttons {
+    display: flex;
+    justify-content: center;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-lg);
+    flex-wrap: wrap;
+}
+
+.threshold-btn {
+    background-color: var(--bg-tertiary);
+    color: var(--text-primary);
+    border: none;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: background-color 0.2s;
+    font-size: 0.875rem;
+    min-width: 35px;
+}
+
+.threshold-btn:hover {
+    background-color: var(--accent-cyan);
+}
+
+/* Threshold Control */
+.threshold-label {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+    color: var(--text-primary);
+    font-size: 0.95rem;
+}
+
+.threshold-slider {
+    flex: 1;
+    min-width: 150px;
+    max-width: 300px;
+    height: 6px;
+    -webkit-appearance: none;
+    appearance: none;
+    background: var(--bg-tertiary);
+    outline: none;
+    border-radius: 3px;
+    cursor: pointer;
+}
+
+.threshold-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 18px;
+    height: 18px;
+    background: var(--accent-cyan);
+    border-radius: 50%;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.threshold-slider::-webkit-slider-thumb:hover {
+    background: var(--accent-blue);
+}
+
+.threshold-slider::-moz-range-thumb {
+    width: 18px;
+    height: 18px;
+    background: var(--accent-cyan);
+    border-radius: 50%;
+    cursor: pointer;
+    border: none;
+    transition: background 0.2s;
+}
+
+.threshold-slider::-moz-range-thumb:hover {
+    background: var(--accent-blue);
 }
 
 /* Chart Container */
@@ -300,7 +393,8 @@ main {
         padding: var(--spacing-md);
     }
 
-    header h1 {
+    header h1,
+    .header-link {
         font-size: 1.25rem;
     }
 

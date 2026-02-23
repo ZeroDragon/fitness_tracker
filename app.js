@@ -10,6 +10,8 @@ createApp({
         const selectedEvent = ref(null);
         const sweetSpotChart = ref(null);
         const perfectSpotChart = ref(null);
+        const timeThreshold = ref(30);
+        const thresholdDisplay = ref(30);
         const zones = {
             sweetSpot: { min: 60, max: 180 },
             perfectSpot: { min: 80, max: 120 }
@@ -106,6 +108,11 @@ createApp({
             currentDate.value = new Date();
         };
 
+        const setThreshold = (value) => {
+            thresholdDisplay.value = value;
+            timeThreshold.value = value;
+        };
+
         // Chart colors by type
         const getEventColor = (type) => {
             const colors = {
@@ -139,7 +146,44 @@ createApp({
                 })
                 .sort((a, b) => a.timestamp - b.timestamp);
 
-            if (glucoseData.length === 0) {
+            // Group glucose readings that are within 2 minutes of each other
+            const groupGlucoseReadings = (readings, groupThresholdMs = timeThreshold.value * 60 * 1000) => {
+                if (readings.length === 0) return [];
+
+                const grouped = [];
+                let currentGroup = [readings[0]];
+
+                for (let i = 1; i < readings.length; i++) {
+                    const firstReading = currentGroup[0];
+                    const currentReading = readings[i];
+                    const timeDiff = currentReading.timestamp.getTime() - firstReading.timestamp.getTime();
+
+                    if (timeDiff <= groupThresholdMs) {
+                        currentGroup.push(currentReading);
+                    } else {
+                        const avgValue = currentGroup.reduce((sum, r) => sum + r.value, 0) / currentGroup.length;
+                        grouped.push({
+                            value: avgValue.toFixed(0),
+                            timestamp: currentGroup[0].timestamp
+                        });
+                        currentGroup = [currentReading];
+                    }
+                }
+
+                if (currentGroup.length > 0) {
+                    const avgValue = currentGroup.reduce((sum, r) => sum + r.value, 0) / currentGroup.length;
+                    grouped.push({
+                        value: avgValue.toFixed(0),
+                        timestamp: currentGroup[0].timestamp
+                    });
+                }
+
+                return grouped;
+            };
+
+            const groupedGlucoseData = groupGlucoseReadings(glucoseData);
+
+            if (groupedGlucoseData.length === 0) {
                 if (chartInstance.value) {
                     chartInstance.value.destroy();
                     chartInstance.value = null;
@@ -148,11 +192,11 @@ createApp({
             }
 
             // Prepare labels from glucose readings - use timestamps
-            const labels = glucoseData.map(r => r.timestamp);
-            const glucoseValues = glucoseData.map(r => r.value);
+            const labels = groupedGlucoseData.map(r => r.timestamp);
+            const glucoseValues = groupedGlucoseData.map(r => r.value);
 
             // Create x,y pairs for glucose line
-            const glucoseDataPoints = glucoseData.map(r => ({
+            const glucoseDataPoints = groupedGlucoseData.map(r => ({
                 x: r.timestamp.getTime(),
                 y: r.value
             }));
@@ -172,7 +216,7 @@ createApp({
                 .sort((a, b) => a.timestamp - b.timestamp);
 
             // Get min and max timestamps for chart bounds
-            const allTimestamps = [...glucoseData.map(r => r.timestamp.getTime()), ...otherEvents.map(e => e.timestamp.getTime())];
+            const allTimestamps = [...groupedGlucoseData.map(r => r.timestamp.getTime()), ...otherEvents.map(e => e.timestamp.getTime())];
             const minTimestamp = Math.min(...allTimestamps);
             const maxTimestamp = Math.max(...allTimestamps);
             // Add some padding (2 minutes on each side)
@@ -188,7 +232,7 @@ createApp({
                 let closestGlucose = null;
                 let minDiff = Infinity;
 
-                glucoseData.forEach(glucose => {
+                groupedGlucoseData.forEach(glucose => {
                     const diff = Math.abs(glucose.timestamp.getTime() - eventTimestamp);
                     if (diff < minDiff) {
                         minDiff = diff;
@@ -215,11 +259,11 @@ createApp({
                     backgroundColor: 'rgba(42, 195, 222, 0.1)',
                     borderWidth: 2,
                     fill: false,
-                    tension: 0,
+                    tension: 0.2,
                     order: 1,
                     pointBackgroundColor: '#2ac3de',
                     pointBorderColor: 'transparent',
-                    pointRadius: 1,
+                    pointRadius: 5,
                     pointHoverRadius: 6,
                     pointHoverBackgroundColor: '#2ac3de',
                     pointHoverBorderColor: '#fff'
@@ -551,6 +595,11 @@ createApp({
             fetchEvents();
         });
 
+        // Watch for threshold changes
+        watch(timeThreshold, () => {
+            updateChart();
+        });
+
         // Lifecycle
         onMounted(() => {
             fetchEvents();
@@ -562,10 +611,13 @@ createApp({
             error,
             currentDate,
             selectedEvent,
+            timeThreshold,
+            thresholdDisplay,
             formatDateForDisplay,
             previousDay,
             nextDay,
             goToToday,
+            setThreshold,
             glucoseReadings,
             otherEvents,
             maxGlucose,
@@ -583,7 +635,7 @@ createApp({
     template: `
         <div>
             <header>
-                <h1>Fitness Tracker</h1>
+                <a href="/" class="header-link">Fitness Tracker</a>
             </header>
 
             <main>
@@ -592,12 +644,38 @@ createApp({
 
                     <!-- Date Controls -->
                     <div class="date-controls">
-                        <button class="date-btn" @click="previousDay">← Anterior</button>
+                        <button class="date-btn date-nav-btn" @click="previousDay">←</button>
                         <span class="date-display">{{ formatDateForDisplay(currentDate) }}</span>
-                        <button class="date-btn" @click="nextDay">Siguiente →</button>
+                        <button class="date-btn date-nav-btn" @click="nextDay">→</button>
                     </div>
+
+                    <!-- Threshold Control -->
                     <div class="date-controls">
-                        <button class="date-btn" @click="goToToday">Hoy</button>
+                        <label class="threshold-label">
+                            Agrupar cada
+                            <input
+                                type="range"
+                                :value="thresholdDisplay"
+                                @input="thresholdDisplay = Number($event.target.value)"
+                                @change="timeThreshold = thresholdDisplay"
+                                min="0"
+                                max="60"
+                                step="1"
+                                class="threshold-slider"
+                            />
+                            {{ thresholdDisplay }} minutos
+                        </label>
+                    </div>
+
+                    <!-- Threshold Quick Buttons -->
+                    <div class="threshold-buttons">
+                        <button class="threshold-btn" @click="setThreshold(0)">0</button>
+                        <button class="threshold-btn" @click="setThreshold(10)">10</button>
+                        <button class="threshold-btn" @click="setThreshold(20)">20</button>
+                        <button class="threshold-btn" @click="setThreshold(30)">30</button>
+                        <button class="threshold-btn" @click="setThreshold(40)">40</button>
+                        <button class="threshold-btn" @click="setThreshold(50)">50</button>
+                        <button class="threshold-btn" @click="setThreshold(60)">60</button>
                     </div>
 
                     <!-- Loading State -->
@@ -643,16 +721,16 @@ createApp({
                                 <h4 class="stats-title">Estadísticas de Glucosa</h4>
                                 <div class="stats-values">
                                     <div class="stat-item">
+                                        <span class="stat-label">Promedio</span>
+                                        <span class="stat-value">{{ avgGlucose }}</span>
+                                    </div>
+                                    <div class="stat-item">
                                         <span class="stat-label">Máximo</span>
                                         <span class="stat-value">{{ maxGlucose }}</span>
                                     </div>
                                     <div class="stat-item">
                                         <span class="stat-label">Mínimo</span>
                                         <span class="stat-value">{{ minGlucose }}</span>
-                                    </div>
-                                    <div class="stat-item">
-                                        <span class="stat-label">Promedio</span>
-                                        <span class="stat-value">{{ avgGlucose }}</span>
                                     </div>
                                 </div>
                             </div>
