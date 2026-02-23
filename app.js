@@ -200,11 +200,13 @@ createApp({
                     backgroundColor: 'rgba(42, 195, 222, 0.1)',
                     borderWidth: 2,
                     fill: false,
-                    tension: 0.4,
+                    tension: 0,
                     pointBackgroundColor: '#2ac3de',
-                    pointBorderColor: '#fff',
-                    pointRadius: 4,
-                    pointHoverRadius: 6
+                    pointBorderColor: 'transparent',
+                    pointRadius: 1,
+                    pointHoverRadius: 6,
+                    pointHoverBackgroundColor: '#2ac3de',
+                    pointHoverBorderColor: '#fff'
                 }
             ];
 
