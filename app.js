@@ -185,7 +185,7 @@ createApp({
             const scatterData = otherEvents.map(event => {
                 return {
                     x: event.timestamp.getTime(),
-                    y: glucoseData.length > 0 ? glucoseData[0].value : 100,
+                    y: 40,
                     event: event
                 };
             });
@@ -218,7 +218,8 @@ createApp({
                     backgroundColor: scatterData.map(d => d.color),
                     pointRadius: 10,
                     pointHoverRadius: 12,
-                    pointStyle: 'triangle'
+                    pointStyle: 'triangle',
+                    pointBackgroundColor: '#ab2ade'
                 });
             }
 
