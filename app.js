@@ -183,9 +183,24 @@ createApp({
 
             // Create scatter dataset for other events - use actual timestamp for x position
             const scatterData = otherEvents.map(event => {
+                // Find closest glucose reading by timestamp
+                const eventTimestamp = event.timestamp.getTime();
+                let closestGlucose = null;
+                let minDiff = Infinity;
+
+                glucoseData.forEach(glucose => {
+                    const diff = Math.abs(glucose.timestamp.getTime() - eventTimestamp);
+                    if (diff < minDiff) {
+                        minDiff = diff;
+                        closestGlucose = glucose;
+                    }
+                });
+
+                const yValue = closestGlucose ? closestGlucose.value : 40;
+
                 return {
-                    x: event.timestamp.getTime(),
-                    y: 40,
+                    x: eventTimestamp,
+                    y: yValue,
                     event: event
                 };
             });
@@ -201,6 +216,7 @@ createApp({
                     borderWidth: 2,
                     fill: false,
                     tension: 0,
+                    order: 1,
                     pointBackgroundColor: '#2ac3de',
                     pointBorderColor: 'transparent',
                     pointRadius: 1,
@@ -219,7 +235,8 @@ createApp({
                     pointRadius: 10,
                     pointHoverRadius: 12,
                     pointStyle: 'triangle',
-                    pointBackgroundColor: '#ab2ade'
+                    pointBackgroundColor: '#ab2ade',
+                    order: 0
                 });
             }
 
