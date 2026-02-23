@@ -150,6 +150,10 @@ main {
     border-left-color: var(--accent-magenta);
 }
 
+.event-item.selected-event {
+    margin: 0 0 var(--spacing-md) 0;
+}
+
 .event-time {
     color: var(--text-secondary);
     font-size: 0.875rem;

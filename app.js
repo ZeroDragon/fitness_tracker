@@ -10,6 +10,10 @@ createApp({
         const selectedEvent = ref(null);
         const sweetSpotChart = ref(null);
         const perfectSpotChart = ref(null);
+        const zones = {
+            sweetSpot: { min: 60, max: 180 },
+            perfectSpot: { min: 80, max: 120 }
+        };
 
         // Format date for API
         const formatDateForApi = (date) => {
@@ -324,16 +328,16 @@ createApp({
                         annotations: {
                             sweetZone: {
                                 type: 'box',
-                                yMin: 60,
-                                yMax: 180,
+                                yMin: zones.sweetSpot.min,
+                                yMax: zones.sweetSpot.max,
                                 backgroundColor: 'transparent',
                                 borderColor: 'rgba(158, 206, 106, 0.3)',
                                 borderWidth: 2
                             },
                             perfectZone: {
                                 type: 'box',
-                                yMin: 80,
-                                yMax: 100,
+                                yMin: zones.perfectSpot.min,
+                                yMax: zones.perfectSpot.max,
                                 backgroundColor: 'transparent',
                                 borderColor: 'rgba(42, 195, 222, 0.3)',
                                 borderWidth: 2
@@ -408,7 +412,7 @@ createApp({
                 });
             }
 
-            // Perfect spot chart (80-100)
+            // Perfect spot chart
             const perfectCtx = document.getElementById('perfectSpotChart');
             if (perfectCtx) {
                 if (perfectSpotChart.value) {
@@ -495,12 +499,12 @@ createApp({
             return (sum / values.length).toFixed(0);
         });
 
-        // Sweet spot (60-180) statistics
+        // Sweet spot statistics
         const sweetSpotStats = computed(() => {
             const readings = glucoseReadings.value;
-            const inRange = readings.filter(r => r.value >= 60 && r.value <= 180).length;
-            const aboveRange = readings.filter(r => r.value > 180).length;
-            const belowRange = readings.filter(r => r.value < 60).length;
+            const inRange = readings.filter(r => r.value >= zones.sweetSpot.min && r.value <= zones.sweetSpot.max).length;
+            const aboveRange = readings.filter(r => r.value > zones.sweetSpot.max).length;
+            const belowRange = readings.filter(r => r.value < zones.sweetSpot.min).length;
             return { inRange, aboveRange, belowRange, total: readings.length };
         });
 
@@ -508,12 +512,12 @@ createApp({
         const sweetSpotAboveCount = computed(() => sweetSpotStats.value.aboveRange);
         const sweetSpotBelowCount = computed(() => sweetSpotStats.value.belowRange);
 
-        // Perfect spot (80-100) statistics
+        // Perfect spot statistics
         const perfectSpotStats = computed(() => {
             const readings = glucoseReadings.value;
-            const inRange = readings.filter(r => r.value >= 80 && r.value <= 100).length;
-            const aboveRange = readings.filter(r => r.value > 100).length;
-            const belowRange = readings.filter(r => r.value < 80).length;
+            const inRange = readings.filter(r => r.value >= zones.perfectSpot.min && r.value <= zones.perfectSpot.max).length;
+            const aboveRange = readings.filter(r => r.value > zones.perfectSpot.max).length;
+            const belowRange = readings.filter(r => r.value < zones.perfectSpot.min).length;
             return { inRange, aboveRange, belowRange, total: readings.length };
         });
 
@@ -552,7 +556,8 @@ createApp({
             sweetSpotBelowCount,
             perfectSpotInCount,
             perfectSpotAboveCount,
-            perfectSpotBelowCount
+            perfectSpotBelowCount,
+            zones
         };
     },
     template: `
@@ -598,6 +603,18 @@ createApp({
                         </p>
                     </div>
 
+                    <!-- Selected Event Detail -->
+                    <div v-if="selectedEvent" class="event-item selected-event" :class="selectedEvent.type">
+                        <div>
+                            <span class="event-type" :class="selectedEvent.type">{{ selectedEvent.type }}</span>
+                            <span class="event-time">{{ selectedEvent.timestamp.toLocaleTimeString('es-ES') }}</span>
+                        </div>
+                        <div class="event-desc">{{ selectedEvent.desc }}</div>
+                        <div class="date-btn" style="margin-top: var(--spacing-xs);" @click="selectedEvent = null">
+                            Cerrar
+                        </div>
+                    </div>
+
                     <!-- Stats Section -->
                     <div v-if="!loading && !error && glucoseReadings.length > 0" class="stats-section">
                         <div class="stats-grid">
@@ -622,7 +639,7 @@ createApp({
 
                             <!-- Sweet Spot Chart -->
                             <div class="stats-card">
-                                <h4 class="stats-title">Sweet Spot (60-180)</h4>
+                                <h4 class="stats-title">Sweet Spot ({{ zones.sweetSpot.min }}-{{ zones.sweetSpot.max }})</h4>
                                 <div class="pie-chart-container">
                                     <canvas id="sweetSpotChart"></canvas>
                                 </div>
@@ -644,7 +661,7 @@ createApp({
 
                             <!-- Perfect Spot Chart -->
                             <div class="stats-card">
-                                <h4 class="stats-title">Perfect Spot (80-100)</h4>
+                                <h4 class="stats-title">Perfect Spot ({{ zones.perfectSpot.min }}-{{ zones.perfectSpot.max }})</h4>
                                 <div class="pie-chart-container">
                                     <canvas id="perfectSpotChart"></canvas>
                                 </div>
@@ -663,18 +680,6 @@ createApp({
                                     </div>
                                 </div>
                             </div>
-                        </div>
-                    </div>
-
-                    <!-- Selected Event Detail -->
-                    <div v-if="selectedEvent" class="event-item" :class="selectedEvent.type">
-                        <div>
-                            <span class="event-type" :class="selectedEvent.type">{{ selectedEvent.type }}</span>
-                            <span class="event-time">{{ selectedEvent.timestamp.toLocaleTimeString('es-ES') }}</span>
-                        </div>
-                        <div class="event-desc">{{ selectedEvent.desc }}</div>
-                        <div class="date-btn" style="margin-top: var(--spacing-xs);" @click="selectedEvent = null">
-                            Cerrar
                         </div>
                     </div>
 
