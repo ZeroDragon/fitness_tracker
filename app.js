@@ -2,6 +2,10 @@ const { createApp, ref, onMounted, onUnmounted, computed, watch, nextTick } = Vu
 
 createApp({
     setup() {
+        const currentSection = ref('glucose');
+        const weightText = ref('');
+        const weightItems = ref([]);
+        const unmatchedBlocks = ref([]);
         const events = ref([]);
         const loading = ref(false);
         const error = ref(null);
@@ -126,7 +130,7 @@ createApp({
         // Toggle auto-refresh
         const toggleAutoRefresh = () => {
             isAutoRefreshing.value = !isAutoRefreshing.value;
-            
+
             if (isAutoRefreshing.value) {
                 // Start auto-refresh every minute
                 autoRefreshInterval.value = setInterval(() => {
@@ -139,6 +143,174 @@ createApp({
                     autoRefreshInterval.value = null;
                 }
             }
+        };
+
+        // Weight tracking types
+        const weightTypes = [
+            'Peso',
+            'BMI',
+            'Grasa',
+            'Peso de grasa corporal',
+            'Porcentaje de masa muscular esquelética',
+            'Peso de la masa muscular esquelética',
+            'Músculo',
+            'Peso muscular',
+            'Grasa Visceral',
+            '% Agua',
+            'Peso del agua',
+            'Metabolismo'
+        ];
+
+        // Unit indicators for each type
+        const weightUnits = {
+            'Peso': 'Kg',
+            'BMI': 'I',
+            'Grasa': '%',
+            'Peso de grasa corporal': 'Kg',
+            'Porcentaje de masa muscular esquelética': '%',
+            'Peso de la masa muscular esquelética': 'Kg',
+            'Músculo': '%',
+            'Peso muscular': 'Kg',
+            'Grasa Visceral': '%',
+            '% Agua': '%',
+            'Peso del agua': 'Kg',
+            'Metabolismo': 'Kcal/día'
+        };
+
+        // Create normalized versions of types (without "(Kg)", "(%)", etc.)
+        const getNormalizedTypes = () => {
+            return weightTypes.map(type => ({
+                original: type,
+                normalized: type.replace(/\s*\([^)]*\)\s*$/g, '').toLowerCase().trim()
+            }));
+        };
+
+        // Find matching type (prioritize more specific matches)
+        const findMatchingType = (input) => {
+            // Normalize input (remove units like "(Kg)", "(%)", etc.)
+            const normalizedInput = input
+                .replace(/^[\s(•]+\s*/, '') // Remove "( ", "• " at start
+                .replace(/\s*[\)•]+\s*$/, '') // Remove ") ", "• " at end
+                .replace(/\s*\([^)]*\)\s*$/g, '') // Remove "(Kg)", "(%)", etc. at end
+                .replace(/\s*\/\s*\w+$/, '') // Remove " / dia", etc. at end
+                .toLowerCase()
+                .trim();
+
+            // Get normalized types
+            const normalizedTypes = getNormalizedTypes();
+
+            // First, try exact match on normalized versions
+            const exactMatch = normalizedTypes.find(nt => nt.normalized === normalizedInput);
+            if (exactMatch) return exactMatch.original;
+
+            // Find all partial matches with scores
+            const matches = normalizedTypes.map(nt => {
+                const typeContainsInput = nt.normalized.includes(normalizedInput);
+                const inputContainsType = normalizedInput.includes(nt.normalized);
+
+                if (!typeContainsInput && !inputContainsType) {
+                    return null;
+                }
+
+                // Calculate match score
+                let score = 0;
+
+                // Bonus: type is fully contained in input (more specific)
+                if (inputContainsType) {
+                    score += 1000;
+                    // Bonus proportional to how much of the input is covered by the type
+                    score += (nt.normalized.length / normalizedInput.length) * 100;
+                }
+
+                // Bonus: input is contained in type (partial match)
+                if (typeContainsInput) {
+                    score += 500;
+                    // Penalty for partial matches - shorter input in longer type is worse
+                    score -= (normalizedInput.length / nt.normalized.length) * 50;
+                }
+
+                // Bonus: longer types are more specific
+                score += nt.normalized.length * 10;
+
+                // Bonus: common prefix at start
+                const commonPrefix = getCommonPrefixLength(normalizedInput, nt.normalized);
+                score += commonPrefix * 20;
+
+                // Big penalty if input is just "peso" and type is longer "peso..."
+                if (normalizedInput === 'peso' && nt.normalized !== 'peso') {
+                    score -= 5000;
+                }
+
+                return { type: nt.original, score };
+            }).filter(match => match !== null);
+
+            // If no matches, return null
+            if (matches.length === 0) return null;
+
+            // Sort by score (highest first)
+            const sortedMatches = matches.sort((a, b) => b.score - a.score);
+
+            return sortedMatches[0].type;
+        };
+
+        // Helper function to get common prefix length
+        const getCommonPrefixLength = (str1, str2) => {
+            let i = 0;
+            const minLen = Math.min(str1.length, str2.length);
+            while (i < minLen && str1[i] === str2[i]) {
+                i++;
+            }
+            return i;
+        };
+
+        // Parse weight text
+        const parseWeightText = () => {
+            const blocks = weightText.value.split(/\n\s*\n/);
+            const matched = [];
+            const unmatched = [];
+
+            blocks.forEach(block => {
+                const lines = block.trim().split('\n').map(l => l.trim()).filter(l => l);
+                if (lines.length >= 2) {
+                    const typeInput = lines[0];
+                    const value = lines[1];
+                    const comment = lines.length > 2 ? lines.slice(2).join(' ') : '';
+                    const trimmedComment = comment.trim();
+                    const filteredComment = trimmedComment.split(/\s+/).filter(word => word.length >= 2).join(' ');
+
+                    const matchedType = findMatchingType(typeInput);
+
+                    if (matchedType) {
+                        matched.push({
+                            type: matchedType,
+                            value: value,
+                            comment: filteredComment
+                        });
+                    } else {
+                        unmatched.push(block.trim());
+                    }
+                }
+            });
+
+            weightItems.value = [...weightItems.value, ...matched];
+            unmatchedBlocks.value = unmatched;
+            weightText.value = unmatched.join('\n\n');
+        };
+
+        // Clear weight items
+        const clearWeightItems = () => {
+            weightItems.value = [];
+            unmatchedBlocks.value = [];
+            weightText.value = '';
+        };
+
+        // Edit weight item - send back to textarea
+        const editWeightItem = (index) => {
+            const item = weightItems.value[index];
+            const unit = weightUnits[item.type];
+            const text = `${item.type}\n${item.value}\n${item.comment}`.trim();
+            weightText.value = weightText.value ? weightText.value + '\n\n' + text : text;
+            weightItems.value = weightItems.value.filter((_, i) => i !== index);
         };
 
         // Zoom controls
@@ -796,7 +968,21 @@ createApp({
             }
         });
 
+        // Switch between sections
+        const setSection = (section) => {
+            currentSection.value = section;
+        };
+
         return {
+            currentSection,
+            setSection,
+            weightText,
+            weightItems,
+            weightUnits,
+            unmatchedBlocks,
+            parseWeightText,
+            clearWeightItems,
+            editWeightItem,
             events,
             loading,
             error,
@@ -834,6 +1020,31 @@ createApp({
     },
     template: `
         <div>
+            <aside class="sidebar">
+                <div 
+                    class="sidebar-item" 
+                    :class="{ active: currentSection === 'glucose' }"
+                    @click="setSection('glucose')"
+                    title="Glucose"
+                >
+                    <svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2">
+                        <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/>
+                    </svg>
+                </div>
+                <div 
+                    class="sidebar-item" 
+                    :class="{ active: currentSection === 'weight' }"
+                    @click="setSection('weight')"
+                    title="Weight"
+                >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 3v18M8 8l4-4 4 4M8 16l4 4 4-4"/>
+                        <path d="M4 20h16"/>
+                    </svg>
+                </div>
+            </aside>
+
+            <div class="main-content">
             <header>
                 <a href="/" class="header-link">
                     <img src="icon.png" alt="Fitness Tracker" class="header-icon">
@@ -842,7 +1053,7 @@ createApp({
             </header>
 
             <main>
-                <section class="section">
+                <section class="section" v-show="currentSection === 'glucose'">
                     <div class="section-header">
                         <h2 class="section-title">Glucose Tracker</h2>
                         <div class="header-controls">
@@ -1025,7 +1236,53 @@ createApp({
                         </div>
                     </div>
                 </section>
+
+                <!-- Weight Section -->
+                <section class="section" v-show="currentSection === 'weight'">
+                    <div class="section-header">
+                        <h2 class="section-title">Weight Tracker</h2>
+                    </div>
+
+                    <div class="weight-input-container">
+                        <h3 style="color: var(--accent-blue); margin-bottom: var(--spacing-md);">Agregar datos de peso</h3>
+                        <p style="color: var(--text-secondary); margin-bottom: var(--spacing-sm); font-size: 0.9rem;">
+                            Formato: Tipo (línea 1), Valor (línea 2), Comentario opcional (línea 3+). Separa cada elemento con una línea en blanco.
+                        </p>
+                        <textarea
+                            v-model="weightText"
+                            class="weight-textarea"
+                            placeholder="Peso (Kg)&#10;102.3&#10;Obese"
+                            rows="5"
+                        ></textarea>
+                        <div style="display: flex; gap: var(--spacing-sm); margin-top: var(--spacing-sm);">
+                            <button class="date-btn" @click="parseWeightText">Enviar</button>
+                            <button class="date-btn date-btn-clear" @click="clearWeightItems">Limpiar</button>
+                        </div>
+                        <div v-if="unmatchedBlocks.length > 0" style="margin-top: var(--spacing-sm); color: var(--accent-yellow); font-size: 0.85rem;">
+                            <p>{{ unmatchedBlocks.length }} elemento(s) no reconocido(s). Verifica los tipos y vuelve a enviar.</p>
+                        </div>
+                    </div>
+
+                    <div v-if="weightItems.length > 0" class="weight-items-list" style="margin-top: var(--spacing-xl);">
+                        <h3 style="color: var(--accent-blue); margin-bottom: var(--spacing-md);">Datos ingresados</h3>
+                        <div
+                            v-for="(item, index) in weightItems"
+                            :key="index"
+                            class="weight-item"
+                            @click="editWeightItem(index)"
+                            style="cursor: pointer;"
+                            title="Click para editar"
+                        >
+                            <div class="weight-item-header">
+                                <span class="weight-item-type">{{ item.type }}</span>
+                                <span class="weight-item-value">{{ item.value }} {{ weightUnits[item.type] }}</span>
+                            </div>
+                            <div v-if="item.comment" class="weight-item-comment">{{ item.comment }}</div>
+                        </div>
+                    </div>
+                </section>
             </main>
+            </div>
         </div>
     `
 }).mount('#app');
