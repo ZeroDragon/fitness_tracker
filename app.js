@@ -563,6 +563,59 @@ createApp({
             return (sum / values.length).toFixed(0);
         });
 
+        const currentGlucose = computed(() => {
+            const readings = glucoseReadings.value;
+            if (readings.length === 0) return '-';
+            return readings[readings.length - 1].value.toFixed(0);
+        });
+
+        const currentTrend = computed(() => {
+            const readings = glucoseReadings.value;
+            if (readings.length === 0) return null;
+            
+            // Get the latest reading
+            const latestReading = readings[readings.length - 1];
+            
+            // Need at least 2 readings to calculate trend
+            if (readings.length < 2) return null;
+            
+            // Find the oldest reading to pair with the latest for trend calculation
+            const oldestReading = readings[0];
+            
+            // Calculate time difference in minutes
+            const timeDiffMs = latestReading.timestamp.getTime() - oldestReading.timestamp.getTime();
+            const timeDiffMinutes = timeDiffMs / (60 * 1000);
+            
+            // Calculate glucose change
+            const glucoseChange = latestReading.value - oldestReading.value;
+            
+            // Calculate rate of change per minute
+            const ratePerMinute = glucoseChange / timeDiffMinutes;
+            
+            // Determine trend level (1-5) based on mg/dL per minute
+            let trend;
+            if (ratePerMinute > 2) {
+                trend = 1; // ↑ Rising quickly (more than 2 mg/dL per minute)
+            } else if (ratePerMinute > 1) {
+                trend = 2; // ↗ Rising (between 1 and 2 mg/dL per minute)
+            } else if (ratePerMinute >= -1) {
+                trend = 3; // → Changing slowly (less than 1 mg/dL per minute)
+            } else if (ratePerMinute >= -2) {
+                trend = 4; // ↘ Falling (between 1 and 2 mg/dL per minute)
+            } else {
+                trend = 5; // ↓ Falling quickly (more than 2 mg/dL per minute)
+            }
+            
+            const trendArrows = {
+                1: '↑',
+                2: '↗',
+                3: '→',
+                4: '↘',
+                5: '↓'
+            };
+            return trendArrows[trend] || null;
+        });
+
         // Sweet spot statistics
         const sweetSpotStats = computed(() => {
             const readings = glucoseReadings.value;
@@ -623,6 +676,8 @@ createApp({
             maxGlucose,
             minGlucose,
             avgGlucose,
+            currentGlucose,
+            currentTrend,
             sweetSpotInCount,
             sweetSpotAboveCount,
             sweetSpotBelowCount,
@@ -720,6 +775,10 @@ createApp({
                             <div class="stats-card">
                                 <h4 class="stats-title">Estadísticas de Glucosa</h4>
                                 <div class="stats-values">
+                                    <div class="stat-item">
+                                        <span class="stat-label">Actual</span>
+                                        <span class="stat-value">{{ currentGlucose }} <span v-if="currentTrend" class="trend-arrow">{{ currentTrend }}</span></span>
+                                    </div>
                                     <div class="stat-item">
                                         <span class="stat-label">Promedio</span>
                                         <span class="stat-value">{{ avgGlucose }}</span>

@@ -338,6 +338,12 @@ main {
     font-weight: bold;
 }
 
+.trend-arrow {
+    color: var(--accent-cyan);
+    font-size: 0.9rem;
+    margin-left: 0.25rem;
+}
+
 .pie-chart-container {
     position: relative;
     height: 200px;
