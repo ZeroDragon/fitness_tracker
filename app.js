@@ -14,6 +14,9 @@ createApp({
         const thresholdDisplay = ref(30);
         const isAutoRefreshing = ref(false);
         const autoRefreshInterval = ref(null);
+        const zoomLevel = ref('all');
+        const zoomWindowStart = ref(0);
+        const fullDataRange = ref({ min: 0, max: 0 });
         const zones = {
             sweetSpot: { min: 60, max: 180 },
             perfectSpot: { min: 80, max: 120 }
@@ -138,6 +141,59 @@ createApp({
             }
         };
 
+        // Zoom controls
+        const getZoomWindowSize = () => {
+            if (zoomLevel.value === 'all') {
+                return fullDataRange.value.max - fullDataRange.value.min;
+            }
+            // Extract number from zoom level (e.g., "1h" -> 1, "4h" -> 4)
+            const hours = parseInt(zoomLevel.value);
+            return hours * 60 * 60 * 1000;
+        };
+
+        const setZoomLevel = (level) => {
+            zoomLevel.value = level;
+            if (level === 'all') {
+                zoomWindowStart.value = 0;
+            } else {
+                const hours = parseInt(level);
+                const windowSize = hours * 60 * 60 * 1000;
+                const dataRange = fullDataRange.value.max - fullDataRange.value.min;
+                
+                // If data range is smaller than window size, show all data
+                if (dataRange <= windowSize) {
+                    zoomWindowStart.value = fullDataRange.value.min;
+                } else {
+                    // Start from the end of the data and go back windowSize
+                    zoomWindowStart.value = fullDataRange.value.max - windowSize;
+                }
+            }
+            updateChart();
+        };
+
+        const moveZoomWindow = (direction) => {
+            // Don't allow movement if zoom is set to 'all' or no data loaded
+            if (zoomLevel.value === 'all') {
+                return;
+            }
+            
+            // Check if data has been loaded (range should be > 0)
+            const dataRange = fullDataRange.value.max - fullDataRange.value.min;
+            if (dataRange <= 0) {
+                return;
+            }
+            
+            const windowSize = getZoomWindowSize();
+            const step = windowSize * 0.5;
+            
+            if (direction === 'left') {
+                zoomWindowStart.value = Math.max(fullDataRange.value.min, zoomWindowStart.value - step);
+            } else {
+                zoomWindowStart.value = Math.min(fullDataRange.value.max - windowSize, zoomWindowStart.value + step);
+            }
+            updateChart();
+        };
+
         // Chart colors by type
         const getEventColor = (type) => {
             const colors = {
@@ -242,44 +298,94 @@ createApp({
 
             // Get min and max timestamps for chart bounds
             const allTimestamps = [...groupedGlucoseData.map(r => r.timestamp.getTime()), ...otherEvents.map(e => e.timestamp.getTime())];
-            const minTimestamp = Math.min(...allTimestamps);
-            const maxTimestamp = Math.max(...allTimestamps);
+            const dataMinTimestamp = Math.min(...allTimestamps);
+            const dataMaxTimestamp = Math.max(...allTimestamps);
+            
+            // Store full data range for zoom
+            fullDataRange.value = { min: dataMinTimestamp, max: dataMaxTimestamp };
+            
+            // Calculate zoom window based on zoom level
+            const windowSize = getZoomWindowSize();
+            let windowStart, windowEnd;
+            
+            if (zoomLevel.value === 'all') {
+                windowStart = dataMinTimestamp;
+                windowEnd = dataMaxTimestamp;
+            } else {
+                // Use zoomWindowStart, but ensure it's within valid range
+                windowStart = zoomWindowStart.value;
+                
+                // If zoomWindowStart is 0 (initial value), start from end of data
+                if (windowStart === 0 || windowStart < dataMinTimestamp) {
+                    windowStart = Math.max(dataMinTimestamp, dataMaxTimestamp - windowSize);
+                }
+                
+                windowEnd = windowStart + windowSize;
+            }
+            
+            // Ensure window stays within data bounds
+            if (windowEnd > dataMaxTimestamp) {
+                windowEnd = dataMaxTimestamp;
+                windowStart = windowEnd - windowSize;
+            }
+            if (windowStart < dataMinTimestamp) {
+                windowStart = dataMinTimestamp;
+                windowEnd = dataMaxTimestamp;
+            }
+            
             // Add some padding (2 minutes on each side)
             const padding = 2 * 60 * 1000; // 2 minutes in milliseconds
+            const minTimestamp = windowStart - padding;
+            const maxTimestamp = windowEnd + padding;
 
-            // Calculate Y-axis max - max glucose value or 200, whichever is greater
-            const maxY = glucoseValues.length > 0 ? Math.max(Math.max(...glucoseValues), 200) : 200;
+            // Filter glucose data points to only show data within zoom window
+            const filteredGlucoseDataPoints = glucoseDataPoints.filter(point => 
+                point.x >= windowStart && point.x <= windowEnd
+            );
+
+            // If no data in zoom window, show all data
+            const displayDataPoints = filteredGlucoseDataPoints.length > 0 ? filteredGlucoseDataPoints : glucoseDataPoints;
+
+            // Calculate Y-axis max - max glucose value within zoom window or 200, whichever is greater
+            const visibleGlucoseValues = displayDataPoints.map(p => p.y);
+            const maxY = visibleGlucoseValues.length > 0 ? Math.max(Math.max(...visibleGlucoseValues), 200) : 200;
 
             // Create scatter dataset for other events - use actual timestamp for x position
-            const scatterData = otherEvents.map(event => {
-                // Find closest glucose reading by timestamp
-                const eventTimestamp = event.timestamp.getTime();
-                let closestGlucose = null;
-                let minDiff = Infinity;
+            // Only include events within zoom window
+            const scatterData = otherEvents
+                .filter(event => {
+                    const eventTimestamp = event.timestamp.getTime();
+                    return eventTimestamp >= windowStart && eventTimestamp <= windowEnd;
+                })
+                .map(event => {
+                    // Find closest glucose reading by timestamp
+                    const eventTimestamp = event.timestamp.getTime();
+                    let closestGlucose = null;
+                    let minDiff = Infinity;
 
-                groupedGlucoseData.forEach(glucose => {
-                    const diff = Math.abs(glucose.timestamp.getTime() - eventTimestamp);
-                    if (diff < minDiff) {
-                        minDiff = diff;
-                        closestGlucose = glucose;
-                    }
+                    groupedGlucoseData.forEach(glucose => {
+                        const diff = Math.abs(glucose.timestamp.getTime() - eventTimestamp);
+                        if (diff < minDiff) {
+                            minDiff = diff;
+                            closestGlucose = glucose;
+                        }
+                    });
+
+                    const yValue = closestGlucose ? closestGlucose.value : 40;
+
+                    return {
+                        x: eventTimestamp,
+                        y: yValue,
+                        event: event
+                    };
                 });
-
-                const yValue = closestGlucose ? closestGlucose.value : 40;
-
-                return {
-                    x: eventTimestamp,
-                    y: yValue,
-                    event: event
-                };
-            });
 
             // Datasets
             const datasets = [
                 {
                     type: 'line',
                     label: 'Glucosa (mg/dL)',
-                    data: glucoseDataPoints,
+                    data: displayDataPoints,
                     borderColor: '#2ac3de',
                     backgroundColor: 'rgba(42, 195, 222, 0.1)',
                     borderWidth: 2,
@@ -706,6 +812,10 @@ createApp({
             reloadData,
             isAutoRefreshing,
             toggleAutoRefresh,
+            zoomLevel,
+            setZoomLevel,
+            moveZoomWindow,
+            getZoomWindowSize,
             glucoseReadings,
             otherEvents,
             maxGlucose,
@@ -758,33 +868,35 @@ createApp({
                         <button class="date-btn date-nav-btn" @click="nextDay">→</button>
                     </div>
 
-                    <!-- Threshold Control -->
-                    <div class="date-controls">
-                        <label class="threshold-label">
-                            Agrupar cada
-                            <input
-                                type="range"
-                                :value="thresholdDisplay"
-                                @input="thresholdDisplay = Number($event.target.value)"
-                                @change="timeThreshold = thresholdDisplay"
-                                min="0"
-                                max="60"
-                                step="1"
-                                class="threshold-slider"
-                            />
-                            {{ thresholdDisplay }} minutos
-                        </label>
-                    </div>
-
-                    <!-- Threshold Quick Buttons -->
-                    <div class="threshold-buttons">
-                        <button class="threshold-btn" @click="setThreshold(0)">0</button>
-                        <button class="threshold-btn" @click="setThreshold(10)">10</button>
-                        <button class="threshold-btn" @click="setThreshold(20)">20</button>
-                        <button class="threshold-btn" @click="setThreshold(30)">30</button>
-                        <button class="threshold-btn" @click="setThreshold(40)">40</button>
-                        <button class="threshold-btn" @click="setThreshold(50)">50</button>
-                        <button class="threshold-btn" @click="setThreshold(60)">60</button>
+                    <!-- Zoom and Threshold Controls -->
+                    <div class="controls-row">
+                        <div class="zoom-controls">
+                            <div class="zoom-levels">
+                                <button 
+                                    v-for="level in ['4h', '12h', 'all']" 
+                                    :key="level"
+                                    class="zoom-btn"
+                                    :class="{ active: zoomLevel === level }"
+                                    @click="setZoomLevel(level)"
+                                >
+                                    {{ level === 'all' ? 'Todo' : level }}
+                                </button>
+                            </div>
+                            <div class="zoom-navigation" v-if="zoomLevel !== 'all'">
+                                <button class="zoom-nav-btn" @click="moveZoomWindow('left')">←</button>
+                                <button class="zoom-nav-btn" @click="moveZoomWindow('right')">→</button>
+                            </div>
+                            <span class="controls-label">Zoom</span>
+                        </div>
+                        
+                        <div class="controls-separator"></div>
+                        
+                        <div class="threshold-buttons">
+                            <span class="controls-label">Detalle</span>
+                            <button class="threshold-btn" @click="setThreshold(60)">-</button>
+                            <button class="threshold-btn" @click="setThreshold(30)">N</button>
+                            <button class="threshold-btn" @click="setThreshold(0)">+</button>
+                        </div>
                     </div>
 
                     <!-- Loading State -->

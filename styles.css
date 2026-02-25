@@ -195,9 +195,10 @@ main {
 /* Threshold Buttons */
 .threshold-buttons {
     display: flex;
+    align-items: center;
     justify-content: center;
-    gap: var(--spacing-sm);
-    margin-bottom: var(--spacing-lg);
+    gap: var(--spacing-xs);
+    margin-bottom: 0;
     flex-wrap: wrap;
 }
 
@@ -216,6 +217,93 @@ main {
 .threshold-btn:hover {
     background-color: var(--accent-cyan);
 }
+
+/* Controls Row */
+.controls-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-md);
+    margin-bottom: var(--spacing-lg);
+    flex-wrap: wrap;
+}
+
+.controls-label {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+.zoom-controls .controls-label {
+    margin-left: var(--spacing-sm);
+}
+
+.threshold-buttons .controls-label {
+    margin-right: var(--spacing-sm);
+}
+
+.controls-separator {
+    width: 1px;
+    height: 30px;
+    background-color: var(--bg-tertiary);
+}
+
+/* Zoom Controls */
+.zoom-controls {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    margin-bottom: 0;
+}
+
+.zoom-levels {
+    display: flex;
+    gap: var(--spacing-xs);
+}
+
+.zoom-btn {
+    background-color: var(--bg-tertiary);
+    color: var(--text-primary);
+    border: none;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+.zoom-btn:hover {
+    background-color: var(--accent-cyan);
+}
+
+.zoom-btn.active {
+    background-color: var(--accent-blue);
+    color: var(--bg-primary);
+}
+
+.zoom-navigation {
+    display: flex;
+    gap: var(--spacing-xs);
+}
+
+.zoom-nav-btn {
+    background-color: var(--bg-tertiary);
+    color: var(--text-primary);
+    border: none;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: background-color 0.2s;
+    font-size: 1rem;
+    min-width: 35px;
+}
+
+.zoom-nav-btn:hover {
+    background-color: var(--accent-cyan);
+}
+
+/* Threshold Control */
 
 /* Threshold Control */
 .threshold-label {
@@ -495,6 +583,39 @@ main {
     .pie-chart-container {
         height: 180px;
     }
+
+    .controls-row {
+        gap: var(--spacing-sm);
+    }
+
+    .controls-label {
+        font-size: 0.75rem;
+    }
+
+    .controls-separator {
+        width: 1px;
+        height: 25px;
+    }
+
+    .zoom-controls {
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+
+    .threshold-buttons {
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+
+    .zoom-btn {
+        font-size: 0.75rem;
+        padding: var(--spacing-xs);
+    }
+
+    .zoom-nav-btn {
+        font-size: 0.875rem;
+        min-width: 30px;
+    }
 }
 
 @media (max-width: 480px) {
@@ -516,5 +637,18 @@ main {
 
     .event-item {
         padding: var(--spacing-sm);
+    }
+
+    .controls-row {
+        gap: var(--spacing-xs);
+    }
+
+    .controls-label {
+        font-size: 0.7rem;
+    }
+
+    .controls-separator {
+        width: 1px;
+        height: 20px;
     }
 }
