@@ -100,10 +100,58 @@ main {
     margin-bottom: var(--spacing-lg);
 }
 
+.section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--spacing-lg);
+    flex-wrap: wrap;
+    gap: var(--spacing-sm);
+}
+
 .section-title {
     font-size: 1.25rem;
     color: var(--accent-blue);
-    margin-bottom: var(--spacing-lg);
+    margin: 0;
+}
+
+.header-controls {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.reload-btn,
+.heart-btn {
+    background-color: var(--bg-tertiary);
+    color: var(--text-primary);
+    border: none;
+    padding: var(--spacing-sm);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: background-color 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.reload-btn:hover,
+.heart-btn:hover {
+    background-color: var(--accent-blue);
+}
+
+.heart-btn.beating {
+    color: var(--accent-red);
+    animation: heartbeat 1s ease-in-out infinite;
+}
+
+@keyframes heartbeat {
+    0%, 100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.2);
+    }
 }
 
 /* Date Controls */

@@ -1,4 +1,4 @@
-const { createApp, ref, onMounted, computed, watch, nextTick } = Vue;
+const { createApp, ref, onMounted, onUnmounted, computed, watch, nextTick } = Vue;
 
 createApp({
     setup() {
@@ -12,6 +12,8 @@ createApp({
         const perfectSpotChart = ref(null);
         const timeThreshold = ref(30);
         const thresholdDisplay = ref(30);
+        const isAutoRefreshing = ref(false);
+        const autoRefreshInterval = ref(null);
         const zones = {
             sweetSpot: { min: 60, max: 180 },
             perfectSpot: { min: 80, max: 120 }
@@ -111,6 +113,29 @@ createApp({
         const setThreshold = (value) => {
             thresholdDisplay.value = value;
             timeThreshold.value = value;
+        };
+
+        // Reload current day's data
+        const reloadData = () => {
+            fetchEvents();
+        };
+
+        // Toggle auto-refresh
+        const toggleAutoRefresh = () => {
+            isAutoRefreshing.value = !isAutoRefreshing.value;
+            
+            if (isAutoRefreshing.value) {
+                // Start auto-refresh every minute
+                autoRefreshInterval.value = setInterval(() => {
+                    fetchEvents();
+                }, 60000);
+            } else {
+                // Stop auto-refresh
+                if (autoRefreshInterval.value) {
+                    clearInterval(autoRefreshInterval.value);
+                    autoRefreshInterval.value = null;
+                }
+            }
         };
 
         // Chart colors by type
@@ -658,6 +683,13 @@ createApp({
             fetchEvents();
         });
 
+        // Cleanup on unmount
+        onUnmounted(() => {
+            if (autoRefreshInterval.value) {
+                clearInterval(autoRefreshInterval.value);
+            }
+        });
+
         return {
             events,
             loading,
@@ -671,6 +703,9 @@ createApp({
             nextDay,
             goToToday,
             setThreshold,
+            reloadData,
+            isAutoRefreshing,
+            toggleAutoRefresh,
             glucoseReadings,
             otherEvents,
             maxGlucose,
@@ -698,7 +733,23 @@ createApp({
 
             <main>
                 <section class="section">
-                    <h2 class="section-title">Glucose Tracker</h2>
+                    <div class="section-header">
+                        <h2 class="section-title">Glucose Tracker</h2>
+                        <div class="header-controls">
+                            <button class="reload-btn" @click="reloadData" title="Recargar datos">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M23 4v6h-6"></path>
+                                    <path d="M1 20v-6h6"></path>
+                                    <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                                </svg>
+                            </button>
+                            <button class="heart-btn" :class="{ 'beating': isAutoRefreshing }" @click="toggleAutoRefresh" title="Auto-recargar cada minuto">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
 
                     <!-- Date Controls -->
                     <div class="date-controls">
