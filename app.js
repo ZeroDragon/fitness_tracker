@@ -690,7 +690,10 @@ createApp({
     template: `
         <div>
             <header>
-                <a href="/" class="header-link">Fitness Tracker</a>
+                <a href="/" class="header-link">
+                    <img src="icon.png" alt="Fitness Tracker" class="header-icon">
+                    Fitness Tracker
+                </a>
             </header>
 
             <main>

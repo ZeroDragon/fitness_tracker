@@ -1,0 +1,15 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="512" height="512" fill="#1a1b26"/>
+
+  <!-- Heart with pulse line -->
+  <g transform="translate(0, 20)">
+    <!-- Heart outline -->
+    <path d="M256 128 C256 128 180 64 130 90 C80 116 80 200 130 250 C180 300 256 380 256 380 C256 380 332 300 382 250 C432 200 432 116 382 90 C332 64 256 128 256 128Z"
+          fill="none" stroke="#7aa2f7" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+
+    <!-- Pulse line through heart -->
+    <path d="M80 256 L160 256 L190 226 L220 286 L250 256 L320 256 L350 196 L380 286 L400 256 L432 256"
+          fill="none" stroke="#2ac3de" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>
