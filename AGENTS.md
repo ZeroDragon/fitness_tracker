@@ -2,7 +2,12 @@
 
 ## Project Overview
 
-This is a single-page application (SPA) for tracking fitness data, specifically glucose readings and related events (food, gym, medicine). The site is built with Vue.js 3 using CDN links - **no build process required**. The static files are served directly by nginx.
+This is a single-page application (SPA) for tracking fitness data, including glucose readings, body composition, and related events (food, gym, medicine). The site is built with Vue.js 3 using CDN links - **no build process required**. The static files are served directly by nginx.
+
+The app has three main sections:
+- **Glucose Tracker**: View glucose readings with charts and event markers
+- **Input Data**: Upload weight and body composition data (requires authentication)
+- **Body Stats**: View historical body composition data by type
 
 ## Essential Commands
 
@@ -86,6 +91,26 @@ freestyle/
 - Click any event to view details
 - Color-coded by event type
 
+### Input Data (Weight Tracker)
+- Textarea for inputting weight and body composition data
+- Multi-line format: Type (line 1), Value (line 2), Comment optional (line 3+)
+- Separate each entry with blank line
+- Parse button converts text to structured items
+- Date picker to select date for data upload
+- Push button sends data to API
+- Click items to edit them
+- Comments filter out words < 2 characters
+
+### Body Stats
+- Displays historical body composition data from API
+- Requires "from" date parameter (shows data from that date + 7 days)
+- Data grouped by type (Peso, Grasa, BMI, etc.)
+- Unit displayed after type name (except "Agua (%)" which includes "%")
+- Each type always shows exactly 7 stat cards (one per day)
+- Cards without data show "-" and have reduced opacity
+- Each card displays: date, value, and comment (if exists)
+- Hover effect on cards for better UX
+
 ## API Integration
 
 ### Endpoint
@@ -115,6 +140,79 @@ GET https://n8n.floresbenavides.com/webhook/events?date=YYYY-MM-DD
 - `gym`: Text description in desc
 - `medicine`: Text description in desc
 
+### Body Stats Endpoint
+```
+GET https://n8n.floresbenavides.com/webhook/bodyStats?from=YYYY-MM-DD
+```
+
+### Body Stats Response Format
+```json
+[
+  {
+    "type": "Peso",
+    "value": "102.30",
+    "comment": "Obese",
+    "epoch": "1771977600000"
+  },
+  {
+    "type": "Grasa",
+    "value": "30.9",
+    "comment": "Obese",
+    "epoch": "1771977600000"
+  }
+]
+```
+
+### Body Stats Notes
+- Returns data from `from` date for 7 days (1 week)
+- Multiple entries per type with different epochs (timestamps)
+- `epoch` is a millisecond timestamp
+- Grouped by type in UI (Peso, Grasa, BMI, etc.)
+
+### Login Endpoint
+```
+POST https://n8n.floresbenavides.com/webhook-test/login
+Content-Type: application/json
+
+{
+  "user": "admin",
+  "password": "admin"
+}
+```
+
+### Login Response
+```json
+{
+  "token": "your-auth-token"
+}
+```
+
+### Login Notes
+- Returns 401 for invalid credentials
+- Token should be stored in localStorage
+- Token required for input data access and push operations
+
+### Scale Data Endpoint
+```
+POST https://n8n.floresbenavides.com/webhook-test/scaledata?date=YYYY-MM-DD
+Authorization: Bearer <token>
+Content-Type: application/json
+
+[
+  {
+    "type": "Peso",
+    "value": "102.3",
+    "comment": "Obese"
+  }
+]
+```
+
+### Scale Data Notes
+- Requires valid auth token in Authorization header
+- Date parameter in query string for when the data applies
+- Sends array of weight/body composition items
+- Types must match accepted weight types
+
 ### Notes
 - Timestamps are already localized (no offset needed)
 - Date parameter is optional - defaults to current date if not provided
@@ -129,7 +227,7 @@ GET https://n8n.floresbenavides.com/webhook/events?date=YYYY-MM-DD
 - **Constants**: UPPER_SNAKE_CASE for API URLs (`apiUrl`)
 
 ### CSS
-- **Classes**: kebab-case (`.date-controls`, `.event-item`)
+- **Classes**: kebab-case (`.date-controls`, `.event-item`, `.stat-card`, `.stat-card-empty`)
 - **CSS Variables**: kebab-case with `--` prefix (`--bg-primary`, `--accent-blue`)
 - **File Names**: lowercase with extensions (`styles.css`, `app.js`)
 

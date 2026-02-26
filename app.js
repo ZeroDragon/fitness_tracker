@@ -15,6 +15,21 @@ createApp({
         const weightItems = ref([]);
         const weightDate = ref(formatDateForApi(new Date()));
         const unmatchedBlocks = ref([]);
+        const bodyStats = ref([]);
+
+        // Calculate previous Monday
+        const getPreviousMonday = () => {
+            const today = new Date();
+            const day = today.getUTCDay();
+            const diff = day === 0 ? 6 : day - 1;
+            const monday = new Date(today);
+            monday.setUTCDate(today.getUTCDate() - diff);
+            return formatDateForApi(monday);
+        };
+
+        const bodyStatsFromDate = ref(getPreviousMonday());
+        const bodyStatsLoading = ref(false);
+        const bodyStatsError = ref(null);
         const events = ref([]);
         const loading = ref(false);
         const error = ref(null);
@@ -133,6 +148,25 @@ createApp({
         // Reload current day's data
         const reloadData = () => {
             fetchEvents();
+        };
+
+        // Fetch body stats
+        const fetchBodyStats = async () => {
+            bodyStatsLoading.value = true;
+            bodyStatsError.value = null;
+            try {
+                const url = `https://n8n.floresbenavides.com/webhook/bodyStats?from=${bodyStatsFromDate.value}`;
+                const response = await fetch(url);
+                if (!response.ok) {
+                    throw new Error('Failed to fetch body stats');
+                }
+                bodyStats.value = await response.json();
+            } catch (err) {
+                bodyStatsError.value = err.message;
+                bodyStats.value = [];
+            } finally {
+                bodyStatsLoading.value = false;
+            }
         };
 
         // Toggle auto-refresh
@@ -1037,6 +1071,80 @@ createApp({
         const perfectSpotAboveCount = computed(() => perfectSpotStats.value.aboveRange);
         const perfectSpotBelowCount = computed(() => perfectSpotStats.value.belowRange);
 
+        // Group body stats by type and ensure 7 days
+        const groupedBodyStats = computed(() => {
+            const groups = {};
+
+            // Generate 7 dates from bodyStatsFromDate (using UTC since server epochs are timezone-aware)
+            const dates = [];
+            const startDate = new Date(bodyStatsFromDate.value + 'T00:00:00Z');
+            for (let i = 0; i < 7; i++) {
+                const date = new Date(startDate);
+                date.setUTCDate(startDate.getUTCDate() + i);
+                dates.push(date);
+            }
+
+            // First, group all items by type (use UTC for date key since epochs are timezone-aware)
+            bodyStats.value.forEach(item => {
+                const type = item.type;
+                if (!groups[type]) {
+                    groups[type] = {};
+                }
+                const itemDate = new Date(parseInt(item.epoch));
+                const dateKey = itemDate.getUTCFullYear() + '-' +
+                    String(itemDate.getUTCMonth() + 1).padStart(2, '0') + '-' +
+                    String(itemDate.getUTCDate()).padStart(2, '0');
+                groups[type][dateKey] = item;
+            });
+
+            // Then, for each type, create an array of 7 items (one per date)
+            const result = {};
+            Object.keys(groups).forEach(type => {
+                const items = dates.map(date => {
+                    const dateKey = date.getUTCFullYear() + '-' +
+                        String(date.getUTCMonth() + 1).padStart(2, '0') + '-' +
+                        String(date.getUTCDate()).padStart(2, '0');
+                    const item = groups[type][dateKey];
+                    return {
+                        date: date,
+                        value: item?.value || null,
+                        comment: item?.comment || '',
+                        hasData: !!item
+                    };
+                });
+                result[type] = items;
+            });
+
+            return result;
+        });
+
+        // Get ordered body stats types
+        const orderedBodyStatsTypes = computed(() => {
+            const priorityOrder = ['Peso', 'BMI', 'Grasa', 'Músculo', 'Agua (%)', 'Metabolismo'];
+            const allTypes = Object.keys(groupedBodyStats.value);
+
+            // Sort by priority order first, then alphabetically
+            return allTypes.sort((a, b) => {
+                const indexA = priorityOrder.indexOf(a);
+                const indexB = priorityOrder.indexOf(b);
+
+                // If both in priority list, sort by priority
+                if (indexA !== -1 && indexB !== -1) {
+                    return indexA - indexB;
+                }
+                // If only a in priority list, a comes first
+                if (indexA !== -1) {
+                    return -1;
+                }
+                // If only b in priority list, b comes first
+                if (indexB !== -1) {
+                    return 1;
+                }
+                // Neither in priority list, sort alphabetically
+                return a.localeCompare(b);
+            });
+        });
+
         // Watch for date changes
         watch(currentDate, () => {
             updateUrlDate();
@@ -1046,6 +1154,20 @@ createApp({
         // Watch for threshold changes
         watch(timeThreshold, () => {
             updateChart();
+        });
+
+        // Watch for section changes
+        watch(currentSection, (newSection) => {
+            if (newSection === 'bodystats') {
+                fetchBodyStats();
+            }
+        });
+
+        // Watch for body stats date changes
+        watch(bodyStatsFromDate, () => {
+            if (currentSection.value === 'bodystats') {
+                fetchBodyStats();
+            }
         });
 
         // Lifecycle
@@ -1088,6 +1210,13 @@ createApp({
             showLoginModal,
             login,
             logout,
+            bodyStats,
+            bodyStatsFromDate,
+            bodyStatsLoading,
+            bodyStatsError,
+            groupedBodyStats,
+            orderedBodyStatsTypes,
+            fetchBodyStats,
             events,
             loading,
             error,
@@ -1136,8 +1265,23 @@ createApp({
                         <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/>
                     </svg>
                 </div>
-                <div 
-                    class="sidebar-item" 
+                <div
+                    class="sidebar-item"
+                    :class="{ active: currentSection === 'bodystats' }"
+                    @click="setSection('bodystats')"
+                    title="Body Stats"
+                >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="5" r="3"/>
+                        <line x1="12" y1="8" x2="12" y2="16"/>
+                        <line x1="12" y1="10" x2="4" y2="10"/>
+                        <line x1="12" y1="10" x2="20" y2="10"/>
+                        <line x1="12" y1="16" x2="8" y2="21"/>
+                        <line x1="12" y1="16" x2="16" y2="21"/>
+                    </svg>
+                </div>
+                <div
+                    class="sidebar-item"
                     :class="{ active: currentSection === 'weight' }"
                     @click="setSection('weight')"
                     title="Input Data"
@@ -1400,6 +1544,61 @@ createApp({
                             />
                             <button class="date-btn date-btn-push" @click="pushWeightItems" style="background-color: var(--accent-green);">Push</button>
                         </div>
+                    </div>
+                </section>
+
+                <!-- Body Stats Section -->
+                <section class="section" v-show="currentSection === 'bodystats'">
+                    <div class="section-header">
+                        <h2 class="section-title">Body Stats</h2>
+                    </div>
+
+                    <div style="margin-bottom: var(--spacing-md);">
+                        <label style="display: block; margin-bottom: var(--spacing-sm); color: var(--text-primary);">Desde (Fecha de inicio)</label>
+                        <div style="display: flex; gap: var(--spacing-sm); align-items: center;">
+                            <input
+                                type="date"
+                                v-model="bodyStatsFromDate"
+                                class="date-input"
+                            />
+                        </div>
+                    </div>
+
+                    <div v-if="bodyStatsLoading" style="text-align: center; color: var(--text-secondary); padding: var(--spacing-xl);">
+                        Cargando datos...
+                    </div>
+
+                    <div v-else-if="bodyStatsError" style="text-align: center; color: var(--accent-red); padding: var(--spacing-xl);">
+                        {{ bodyStatsError }}
+                    </div>
+
+                    <div v-else-if="Object.keys(groupedBodyStats).length > 0">
+                        <div
+                            v-for="type in orderedBodyStatsTypes"
+                            :key="type"
+                            style="margin-bottom: var(--spacing-xl);"
+                        >
+                            <h3 style="color: var(--accent-cyan); margin-bottom: var(--spacing-md); font-size: 1.2rem;">
+                                {{ type + (type !== 'Agua (%)' ? ' (' + weightUnits[type] + ')' : '') }}
+                            </h3>
+                            <div style="display: flex; gap: var(--spacing-sm); width: 100%;">
+                                <div
+                                    v-for="(item, index) in groupedBodyStats[type]"
+                                    :key="index"
+                                    class="stat-card"
+                                    :class="{ 'stat-card-empty': !item.hasData }"
+                                >
+                                    <div class="stat-date">{{ ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'][item.date.getUTCDay()] + ' ' + String(item.date.getUTCDate()).padStart(2, '0') + ' ' + ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'][item.date.getUTCMonth()] }}</div>
+                                    <div v-if="item.hasData" class="stat-value">{{ item.value }}</div>
+                                    <div v-else class="stat-value stat-value-empty">-</div>
+                                    <div v-if="item.hasData && item.comment" class="stat-comment">{{ item.comment }}</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div v-else style="text-align: center; color: var(--text-secondary); padding: var(--spacing-xl);">
+                        No hay datos disponibles para el período seleccionado.
                     </div>
                 </section>
             </main>

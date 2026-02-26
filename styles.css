@@ -764,6 +764,53 @@ main {
     margin-top: var(--spacing-xs);
 }
 
+.stat-card {
+    background-color: var(--bg-tertiary);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-md);
+    flex: 1;
+    border: 1px solid var(--accent-blue);
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.stat-date {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    margin-bottom: var(--spacing-xs);
+}
+
+.stat-value {
+    color: var(--accent-green);
+    font-weight: bold;
+    font-size: 1.2rem;
+    margin-bottom: var(--spacing-xs);
+}
+
+.stat-comment {
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+}
+
+.stat-card-empty {
+    opacity: 0.5;
+    border-style: dashed;
+}
+
+.stat-card-empty:hover {
+    transform: none;
+    box-shadow: none;
+}
+
+.stat-value-empty {
+    color: var(--text-secondary);
+    opacity: 0.5;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
     .main-content {
