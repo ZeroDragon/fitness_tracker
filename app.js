@@ -2,9 +2,18 @@ const { createApp, ref, onMounted, onUnmounted, computed, watch, nextTick } = Vu
 
 createApp({
     setup() {
+        // Helper functions
+        const formatDateForApi = (date) => {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        };
+
         const currentSection = ref('glucose');
         const weightText = ref('');
         const weightItems = ref([]);
+        const weightDate = ref(formatDateForApi(new Date()));
         const unmatchedBlocks = ref([]);
         const events = ref([]);
         const loading = ref(false);
@@ -26,13 +35,12 @@ createApp({
             perfectSpot: { min: 80, max: 120 }
         };
 
-        // Format date for API
-        const formatDateForApi = (date) => {
-            const year = date.getFullYear();
-            const month = String(date.getMonth() + 1).padStart(2, '0');
-            const day = String(date.getDate()).padStart(2, '0');
-            return `${year}-${month}-${day}`;
-        };
+        // Authentication
+        const authToken = ref(localStorage.getItem('authToken') || '');
+        const loginUsername = ref('');
+        const loginPassword = ref('');
+        const loginError = ref('');
+        const showLoginModal = ref(false);
 
         // Format date for display
         const formatDateForDisplay = (date) => {
@@ -156,7 +164,7 @@ createApp({
             'Músculo',
             'Peso muscular',
             'Grasa Visceral',
-            '% Agua',
+            'Agua (%)',
             'Peso del agua',
             'Metabolismo'
         ];
@@ -172,7 +180,7 @@ createApp({
             'Músculo': '%',
             'Peso muscular': 'Kg',
             'Grasa Visceral': '%',
-            '% Agua': '%',
+            'Agua (%)': '%',
             'Peso del agua': 'Kg',
             'Metabolismo': 'Kcal/día'
         };
@@ -311,6 +319,90 @@ createApp({
             const text = `${item.type}\n${item.value}\n${item.comment}`.trim();
             weightText.value = weightText.value ? weightText.value + '\n\n' + text : text;
             weightItems.value = weightItems.value.filter((_, i) => i !== index);
+        };
+
+        // Push weight items to API
+        const pushWeightItems = async () => {
+            try {
+                const apiUrl = `https://n8n.floresbenavides.com/webhook/scaledata?date=${weightDate.value}`;
+                const payload = weightItems.value.map(item => ({
+                    type: item.type,
+                    value: item.value,
+                    comment: item.comment
+                }));
+
+                const headers = {
+                    'Content-Type': 'application/json'
+                };
+
+                if (authToken.value) {
+                    headers['Authorization'] = `Bearer ${authToken.value}`;
+                }
+
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: headers,
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                alert('Datos enviados exitosamente');
+                clearWeightItems();
+            } catch (error) {
+                console.error('Error al enviar datos:', error);
+                alert('Error al enviar datos. Por favor, intenta nuevamente.');
+            }
+        };
+
+        // Login
+        const login = async () => {
+            try {
+                const response = await fetch('https://n8n.floresbenavides.com/webhook/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        user: loginUsername.value,
+                        password: loginPassword.value
+                    })
+                });
+
+                if (response.status === 401) {
+                    loginError.value = 'Usuario o contraseña incorrectos';
+                    return;
+                }
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                if (data.token) {
+                    authToken.value = data.token;
+                    localStorage.setItem('authToken', data.token);
+                    showLoginModal.value = false;
+                    loginError.value = '';
+                    loginUsername.value = '';
+                    loginPassword.value = '';
+                    currentSection.value = 'weight';
+                } else {
+                    loginError.value = 'Error: No se recibió token';
+                }
+            } catch (error) {
+                console.error('Error al iniciar sesión:', error);
+                loginError.value = 'Error de conexión. Intenta nuevamente.';
+            }
+        };
+
+        // Logout
+        const logout = () => {
+            authToken.value = '';
+            localStorage.removeItem('authToken');
+            currentSection.value = 'glucose';
         };
 
         // Zoom controls
@@ -970,6 +1062,10 @@ createApp({
 
         // Switch between sections
         const setSection = (section) => {
+            if (section === 'weight' && !authToken.value) {
+                showLoginModal.value = true;
+                return;
+            }
             currentSection.value = section;
         };
 
@@ -978,11 +1074,20 @@ createApp({
             setSection,
             weightText,
             weightItems,
+            weightDate,
             weightUnits,
             unmatchedBlocks,
             parseWeightText,
             clearWeightItems,
             editWeightItem,
+            pushWeightItems,
+            authToken,
+            loginUsername,
+            loginPassword,
+            loginError,
+            showLoginModal,
+            login,
+            logout,
             events,
             loading,
             error,
@@ -1035,11 +1140,12 @@ createApp({
                     class="sidebar-item" 
                     :class="{ active: currentSection === 'weight' }"
                     @click="setSection('weight')"
-                    title="Weight"
+                    title="Input Data"
                 >
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M12 3v18M8 8l4-4 4 4M8 16l4 4 4-4"/>
-                        <path d="M4 20h16"/>
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                        <polyline points="17,8 12,3 7,8"/>
+                        <line x1="12" y1="3" x2="12" y2="15"/>
                     </svg>
                 </div>
             </aside>
@@ -1050,6 +1156,13 @@ createApp({
                     <img src="icon.png" alt="Fitness Tracker" class="header-icon">
                     Fitness Tracker
                 </a>
+                <button v-if="authToken" @click="logout" class="logout-btn" title="Cerrar sesión">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                        <polyline points="16,17 21,12 16,7"/>
+                        <line x1="21" y1="12" x2="9" y2="12"/>
+                    </svg>
+                </button>
             </header>
 
             <main>
@@ -1240,7 +1353,7 @@ createApp({
                 <!-- Weight Section -->
                 <section class="section" v-show="currentSection === 'weight'">
                     <div class="section-header">
-                        <h2 class="section-title">Weight Tracker</h2>
+                        <h2 class="section-title">Input Data</h2>
                     </div>
 
                     <div class="weight-input-container">
@@ -1279,9 +1392,51 @@ createApp({
                             </div>
                             <div v-if="item.comment" class="weight-item-comment">{{ item.comment }}</div>
                         </div>
+                        <div style="margin-top: var(--spacing-md); display: flex; gap: var(--spacing-sm); align-items: center;">
+                            <input
+                                type="date"
+                                v-model="weightDate"
+                                class="date-input"
+                            />
+                            <button class="date-btn date-btn-push" @click="pushWeightItems" style="background-color: var(--accent-green);">Push</button>
+                        </div>
                     </div>
                 </section>
             </main>
+            </div>
+
+            <!-- Login Modal -->
+            <div v-if="showLoginModal" class="modal-overlay">
+                <div class="modal-content">
+                    <h2 style="color: var(--accent-blue); margin-bottom: var(--spacing-md);">Iniciar Sesión</h2>
+                    <div style="margin-bottom: var(--spacing-md);">
+                        <label style="display: block; margin-bottom: var(--spacing-sm); color: var(--text-primary);">Usuario</label>
+                        <input
+                            v-model="loginUsername"
+                            type="text"
+                            class="login-input"
+                            placeholder="Usuario"
+                            @keyup.enter="login"
+                        />
+                    </div>
+                    <div style="margin-bottom: var(--spacing-md);">
+                        <label style="display: block; margin-bottom: var(--spacing-sm); color: var(--text-primary);">Contraseña</label>
+                        <input
+                            v-model="loginPassword"
+                            type="password"
+                            class="login-input"
+                            placeholder="Contraseña"
+                            @keyup.enter="login"
+                        />
+                    </div>
+                    <div v-if="loginError" style="margin-bottom: var(--spacing-md); color: var(--accent-red); font-size: 0.9rem;">
+                        {{ loginError }}
+                    </div>
+                    <div style="display: flex; gap: var(--spacing-sm);">
+                        <button class="date-btn" @click="login">Iniciar Sesión</button>
+                        <button class="date-btn date-btn-clear" @click="showLoginModal = false; loginError = '';">Cancelar</button>
+                    </div>
+                </div>
             </div>
         </div>
     `
