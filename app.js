@@ -30,6 +30,7 @@ createApp({
         const bodyStatsFromDate = ref(getPreviousMonday());
         const bodyStatsLoading = ref(false);
         const bodyStatsError = ref(null);
+        const openAccordions = ref({});
         const events = ref([]);
         const loading = ref(false);
         const error = ref(null);
@@ -167,6 +168,11 @@ createApp({
             } finally {
                 bodyStatsLoading.value = false;
             }
+        };
+
+        // Toggle accordion for body stats
+        const toggleAccordion = (type) => {
+            openAccordions.value[type] = !openAccordions.value[type];
         };
 
         // Toggle auto-refresh
@@ -1216,6 +1222,8 @@ createApp({
             bodyStatsError,
             groupedBodyStats,
             orderedBodyStatsTypes,
+            openAccordions,
+            toggleAccordion,
             fetchBodyStats,
             events,
             loading,
@@ -1576,12 +1584,19 @@ createApp({
                         <div
                             v-for="type in orderedBodyStatsTypes"
                             :key="type"
-                            style="margin-bottom: var(--spacing-xl);"
+                            style="margin-bottom: var(--spacing-md);"
                         >
-                            <h3 style="color: var(--accent-cyan); margin-bottom: var(--spacing-md); font-size: 1.2rem;">
+                            <h3
+                                @click="toggleAccordion(type)"
+                                class="accordion-header"
+                                style="color: var(--accent-cyan); margin-bottom: var(--spacing-md); font-size: 1.2rem;"
+                            >
                                 {{ type + (type !== 'Agua (%)' ? ' (' + weightUnits[type] + ')' : '') }}
+                                <svg class="accordion-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline :points="openAccordions[type] ? '18,6 6,12 18,18' : '6,9 12,15 18,9'"/>
+                                </svg>
                             </h3>
-                            <div style="display: flex; gap: var(--spacing-sm); width: 100%;">
+                            <div v-show="openAccordions[type]" style="display: flex; gap: var(--spacing-sm); width: 100%;" class="stat-cards-row">
                                 <div
                                     v-for="(item, index) in groupedBodyStats[type]"
                                     :key="index"
