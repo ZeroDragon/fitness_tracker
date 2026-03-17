@@ -764,6 +764,88 @@ main {
     margin-top: var(--spacing-xs);
 }
 
+/* Event Type Buttons */
+.event-type-btn {
+    flex: 1;
+    background-color: var(--bg-tertiary);
+    color: var(--text-primary);
+    border: 2px solid var(--bg-tertiary);
+    padding: var(--spacing-sm) var(--spacing-md);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 1rem;
+    font-weight: 500;
+}
+
+.event-type-btn:hover {
+    background-color: var(--accent-blue);
+    border-color: var(--accent-blue);
+    color: var(--bg-primary);
+}
+
+.event-type-btn-medicine.event-type-btn-active {
+    background-color: var(--accent-magenta);
+    border-color: var(--accent-magenta);
+    color: var(--bg-primary);
+}
+
+.event-type-btn-food.event-type-btn-active {
+    background-color: var(--accent-orange);
+    border-color: var(--accent-orange);
+    color: var(--bg-primary);
+}
+
+.event-type-btn-gym.event-type-btn-active {
+    background-color: var(--accent-green);
+    border-color: var(--accent-green);
+    color: var(--bg-primary);
+}
+
+.event-type-btn-medicine:hover {
+    background-color: var(--accent-magenta);
+    border-color: var(--accent-magenta);
+    color: var(--bg-primary);
+}
+
+.event-type-btn-food:hover {
+    background-color: var(--accent-orange);
+    border-color: var(--accent-orange);
+    color: var(--bg-primary);
+}
+
+.event-type-btn-gym:hover {
+    background-color: var(--accent-green);
+    border-color: var(--accent-green);
+    color: var(--bg-primary);
+}
+
+/* Event Input Fields */
+.event-input {
+    width: 100%;
+    padding: var(--spacing-sm);
+    background-color: var(--bg-tertiary);
+    color: var(--text-primary);
+    border: 1px solid var(--accent-blue);
+    border-radius: var(--radius-md);
+    font-size: 1rem;
+}
+
+.event-input:focus {
+    outline: none;
+    border-color: var(--accent-cyan);
+    box-shadow: 0 0 0 2px rgba(42, 195, 222, 0.2);
+}
+
+.event-input::-webkit-calendar-picker-indicator {
+    filter: invert(1);
+    cursor: pointer;
+}
+
+.event-input::-webkit-calendar-picker-indicator:hover {
+    filter: invert(1) brightness(0.8);
+}
+
 .stat-card {
     background-color: var(--bg-tertiary);
     border-radius: var(--radius-md);

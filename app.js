@@ -17,6 +17,13 @@ createApp({
         const unmatchedBlocks = ref([]);
         const bodyStats = ref([]);
 
+        // Event data input
+        const eventType = ref('medicine');
+        const eventDesc = ref('');
+        const eventDate = ref(formatDateForApi(new Date()));
+        const eventTime = ref('');
+        const eventItems = ref([]);
+
         // Calculate previous Monday
         const getPreviousMonday = () => {
             const today = new Date();
@@ -394,6 +401,90 @@ createApp({
             } catch (error) {
                 console.error('Error al enviar datos:', error);
                 alert('Error al enviar datos. Por favor, intenta nuevamente.');
+            }
+        };
+
+        // Format timestamp for API (M/D/YYYY h:mm:ss AM/PM)
+        const formatTimestampForApi = (date, time) => {
+            if (!date || !time) return '';
+            const [year, month, day] = date.split('-').map(Number);
+            const [hours, minutes] = time.split(':').map(Number);
+            
+            const dateObj = new Date(year, month - 1, day, hours, minutes);
+            const monthNum = dateObj.getMonth() + 1;
+            const dayNum = dateObj.getDate();
+            const yearNum = dateObj.getFullYear();
+            
+            let hoursNum = dateObj.getHours();
+            const ampm = hoursNum >= 12 ? 'PM' : 'AM';
+            hoursNum = hoursNum % 12;
+            hoursNum = hoursNum ? hoursNum : 12;
+            
+            const minutesStr = String(dateObj.getMinutes()).padStart(2, '0');
+            const secondsStr = '00';
+            
+            return `${monthNum}/${dayNum}/${yearNum} ${hoursNum}:${minutesStr}:${secondsStr} ${ampm}`;
+        };
+
+        // Add event to list
+        const addEvent = () => {
+            if (!eventDesc.value.trim()) {
+                alert('Por favor ingresa una descripción');
+                return;
+            }
+            if (!eventDate.value || !eventTime.value) {
+                alert('Por favor selecciona fecha y hora');
+                return;
+            }
+            
+            const timestamp = formatTimestampForApi(eventDate.value, eventTime.value);
+            
+            eventItems.value.push({
+                type: eventType.value,
+                desc: eventDesc.value.trim(),
+                timestamp: timestamp
+            });
+            
+            eventDesc.value = '';
+        };
+
+        // Remove event from list
+        const removeEvent = (index) => {
+            eventItems.value = eventItems.value.filter((_, i) => i !== index);
+        };
+
+        // Push event items to API
+        const pushEventItems = async () => {
+            if (eventItems.value.length === 0) {
+                alert('No hay eventos para enviar');
+                return;
+            }
+            
+            try {
+                const apiUrl = 'https://n8n.floresbenavides.com/webhook/new_event';
+                const payload = eventItems.value.map(item => ({
+                    type: item.type,
+                    desc: item.desc,
+                    timestamp: item.timestamp
+                }));
+
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                alert('Eventos enviados exitosamente');
+                eventItems.value = [];
+            } catch (error) {
+                console.error('Error al enviar eventos:', error);
+                alert('Error al enviar eventos. Por favor, intenta nuevamente.');
             }
         };
 
@@ -1209,6 +1300,14 @@ createApp({
             clearWeightItems,
             editWeightItem,
             pushWeightItems,
+            eventType,
+            eventDesc,
+            eventDate,
+            eventTime,
+            eventItems,
+            addEvent,
+            removeEvent,
+            pushEventItems,
             authToken,
             loginUsername,
             loginPassword,
@@ -1551,6 +1650,94 @@ createApp({
                                 class="date-input"
                             />
                             <button class="date-btn date-btn-push" @click="pushWeightItems" style="background-color: var(--accent-green);">Push</button>
+                        </div>
+                    </div>
+
+                    <div style="margin-top: var(--spacing-xl); border-top: 1px solid var(--bg-tertiary); padding-top: var(--spacing-xl);">
+                        <h3 style="color: var(--accent-blue); margin-bottom: var(--spacing-md);">Agregar evento</h3>
+                        <div style="margin-bottom: var(--spacing-md);">
+                            <label style="display: block; margin-bottom: var(--spacing-sm); color: var(--text-primary);">Tipo</label>
+                            <div style="display: flex; gap: var(--spacing-sm);">
+                                <button 
+                                    class="event-type-btn" 
+                                    :class="{ 'event-type-btn-medicine': eventType === 'medicine', 'event-type-btn-active': eventType === 'medicine' }"
+                                    @click="eventType = 'medicine'"
+                                >
+                                    Medicine
+                                </button>
+                                <button 
+                                    class="event-type-btn" 
+                                    :class="{ 'event-type-btn-food': eventType === 'food', 'event-type-btn-active': eventType === 'food' }"
+                                    @click="eventType = 'food'"
+                                >
+                                    Food
+                                </button>
+                                <button 
+                                    class="event-type-btn" 
+                                    :class="{ 'event-type-btn-gym': eventType === 'gym', 'event-type-btn-active': eventType === 'gym' }"
+                                    @click="eventType = 'gym'"
+                                >
+                                    Gym
+                                </button>
+                            </div>
+                        </div>
+                        <div style="margin-bottom: var(--spacing-md);">
+                            <label style="display: block; margin-bottom: var(--spacing-sm); color: var(--text-primary);">Descripción</label>
+                            <textarea
+                                v-model="eventDesc"
+                                class="weight-textarea"
+                                placeholder="Descripción del evento..."
+                                rows="3"
+                            ></textarea>
+                        </div>
+                        <div style="margin-bottom: var(--spacing-md); display: flex; gap: var(--spacing-sm); flex-wrap: wrap;">
+                            <div style="flex: 1; min-width: 200px;">
+                                <label style="display: block; margin-bottom: var(--spacing-sm); color: var(--text-primary);">Fecha</label>
+                                <input
+                                    type="date"
+                                    v-model="eventDate"
+                                    class="event-input"
+                                />
+                            </div>
+                            <div style="flex: 1; min-width: 200px;">
+                                <label style="display: block; margin-bottom: var(--spacing-sm); color: var(--text-primary);">Hora</label>
+                                <input
+                                    type="time"
+                                    v-model="eventTime"
+                                    class="event-input"
+                                />
+                            </div>
+                        </div>
+                        <div style="display: flex; gap: var(--spacing-sm);">
+                            <button class="date-btn" @click="addEvent">Agregar</button>
+                        </div>
+                    </div>
+
+                    <div v-if="eventItems.length > 0" class="weight-items-list" style="margin-top: var(--spacing-xl);">
+                        <h3 style="color: var(--accent-blue); margin-bottom: var(--spacing-md);">Eventos ingresados</h3>
+                        <div
+                            v-for="(item, index) in eventItems"
+                            :key="index"
+                            class="event-item"
+                            :class="item.type"
+                        >
+                            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                                <div style="flex: 1;">
+                                    <span class="event-type" :class="item.type">{{ item.type }}</span>
+                                    <span class="event-time">{{ item.timestamp }}</span>
+                                </div>
+                                <button 
+                                    class="date-btn date-btn-clear" 
+                                    @click.stop="removeEvent(index)"
+                                    style="padding: var(--spacing-xs) var(--spacing-sm); font-size: 0.8rem;"
+                                >
+                                    X
+                                </button>
+                            </div>
+                            <div class="event-desc">{{ item.desc }}</div>
+                        </div>
+                        <div style="margin-top: var(--spacing-md); display: flex; gap: var(--spacing-sm); align-items: center;">
+                            <button class="date-btn date-btn-push" @click="pushEventItems" style="background-color: var(--accent-green);">Push</button>
                         </div>
                     </div>
                 </section>
